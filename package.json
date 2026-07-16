@@ -1,0 +1,36 @@
+{
+  "name": "petid-eth-ipfs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "deploy": "next build && node scripts/deploy-ipfs.mjs"
+  },
+  "dependencies": {
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@tanstack/react-query": "^5.99.0",
+    "dotenv": "^16.0.0",
+    "multiformats": "^13.4.2",
+    "next": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "use-debounce": "^10.1.1",
+    "viem": "^2.48.1",
+    "wagmi": "^2.19.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "form-data": "^4.0.0",
+    "typescript": "^5"
+  },
+  "type": "module",
+  "resolutions": {
+    "cbw-sdk": "npm:@coinbase/wallet-sdk@latest"
+  },
+  "overrides": {
+    "cbw-sdk": "npm:@coinbase/wallet-sdk@latest"
+  }
+}
