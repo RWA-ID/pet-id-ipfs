@@ -8,7 +8,8 @@
     "deploy": "next build && node scripts/deploy-ipfs.mjs"
   },
   "dependencies": {
-    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@reown/appkit": "^1.8.20",
+    "@reown/appkit-adapter-wagmi": "^1.8.20",
     "@tanstack/react-query": "^5.99.0",
     "dotenv": "^16.0.0",
     "multiformats": "^13.4.2",
@@ -16,8 +17,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "use-debounce": "^10.1.1",
-    "viem": "^2.48.1",
-    "wagmi": "^2.19.5"
+    "viem": "^2.52.2",
+    "wagmi": "^3.6.16"
   },
   "devDependencies": {
     "@types/node": "^20",

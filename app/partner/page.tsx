@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAccount, useDisconnect } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useAppKit } from "@reown/appkit/react";
 import { usePartnerInfo, usePartnerAdmin, ROUTER_ADDRESS } from "@/hooks/usePartnerRouter";
 
 const SITE = "https://petid.eth.link";
@@ -39,7 +39,7 @@ function CopyBlock({ label, code }: { label: string; code: string }) {
 
 export default function PartnerDashboard() {
   const { address, isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
+  const { open: openConnectModal } = useAppKit();
   const { disconnect } = useDisconnect();
   const info = usePartnerInfo(address);
   const admin = usePartnerAdmin();
@@ -120,7 +120,7 @@ export default function PartnerDashboard() {
               <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px",lineHeight:1.6}}>
                 Connect the wallet that will receive your earnings to get started — going live takes one transaction.
               </p>
-              <button style={btnPrimary} onClick={openConnectModal}>Connect Wallet</button>
+              <button style={btnPrimary} onClick={() => openConnectModal()}>Connect Wallet</button>
             </div>
 
             {/* At the clinic / at the counter */}
@@ -189,7 +189,7 @@ export default function PartnerDashboard() {
             </div>
 
             <div style={{textAlign:"center"}}>
-              <button style={{...btnPrimary,width:"auto",padding:"14px 32px"}} onClick={openConnectModal}>🐾 Become a partner</button>
+              <button style={{...btnPrimary,width:"auto",padding:"14px 32px"}} onClick={() => openConnectModal()}>🐾 Become a partner</button>
             </div>
           </>
         ) : (
