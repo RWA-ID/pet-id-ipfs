@@ -1,0 +1,18 @@
+{
+  "name": "@petidentity/widget",
+  "version": "0.1.0",
+  "description": "Embeddable PetID widget for pet shops, vets and groomers — let customers mint ENS pet identities at your price and earn the margin on-chain.",
+  "main": "dist/widget.js",
+  "browser": "dist/widget.js",
+  "unpkg": "dist/widget.js",
+  "files": ["dist", "README.md"],
+  "keywords": ["petid", "ens", "pets", "web3", "widget", "dogid", "catid"],
+  "homepage": "https://petid.eth.link",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RWA-ID/pet-id-ipfs.git",
+    "directory": "widget"
+  },
+  "license": "MIT",
+  "publishConfig": { "access": "public" }
+}

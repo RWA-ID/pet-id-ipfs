@@ -395,6 +395,7 @@ export default function LandingPage() {
               <h5>Resources</h5>
               <ul>
                 <li><a href="#">FAQ</a></li>
+                <li><Link href="/partner/">For pet shops &amp; vets</Link></li>
               </ul>
             </div>
             <div className="foot-col">

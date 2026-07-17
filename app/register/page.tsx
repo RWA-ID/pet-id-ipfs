@@ -6,6 +6,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { namehash } from "viem/ens";
 import { useDebounce } from "use-debounce";
 import { useRegister } from "@/hooks/useRegister";
+import { usePartnerInfo, useRegisterViaPartner } from "@/hooks/usePartnerRouter";
 import { TEMPLATES } from "@/lib/templates/registry";
 import { uploadFileToPinata, uploadHtmlToPinata, ipfsUrl } from "@/lib/pinata-browser";
 import { cidToContenthash } from "@/lib/contenthash";
@@ -127,7 +128,27 @@ export default function RegisterWizard() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { disconnect } = useDisconnect();
-  const { register, reset: resetWrite, fee, hash, isPending, isConfirming, isSuccess, error: wagmiError } = useRegister(namespace);
+
+  // ── partner mode (?partner=0x…) — widget/embed entry point ──
+  const [partnerAddr, setPartnerAddr] = useState<`0x${string}` | undefined>(undefined);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("partner");
+    if (p && /^0x[0-9a-fA-F]{40}$/.test(p)) setPartnerAddr(p as `0x${string}`);
+  }, []);
+  const partnerInfo = usePartnerInfo(partnerAddr);
+  const partnerActive = !!partnerAddr && !!partnerInfo.price && partnerInfo.price > 0n;
+
+  const direct = useRegister(namespace);
+  const viaPartner = useRegisterViaPartner(namespace);
+
+  const resetWrite = partnerActive ? viaPartner.reset : direct.reset;
+  const fee = partnerActive ? partnerInfo.price : direct.fee;
+  const { hash, isPending, isConfirming, isSuccess, error: wagmiError } =
+    partnerActive ? viaPartner : direct;
+  const register = (label: string, contenthash: `0x${string}`) =>
+    partnerActive
+      ? viaPartner.register(label, contenthash, partnerAddr!, partnerInfo.price)
+      : direct.register(label, contenthash);
 
   const REGISTRAR_ADDRESS = process.env.NEXT_PUBLIC_PETID_REGISTRAR_ADDRESS as `0x${string}`;
   const IS_AVAILABLE_ABI = [{
@@ -377,6 +398,14 @@ export default function RegisterWizard() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Partner banner (widget/embed mode) */}
+        {partnerActive && (
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",background:"#FEF3E5",border:"1px solid #E8A962",borderRadius:"999px",padding:"8px 18px",marginBottom:"24px",fontSize:"13px",color:"#A35E1B",fontWeight:600}}>
+            <span aria-hidden="true">🐾</span>
+            In partnership with {partnerInfo.name || `${partnerAddr!.slice(0,6)}…${partnerAddr!.slice(-4)}`}
           </div>
         )}
 
@@ -711,9 +740,14 @@ export default function RegisterWizard() {
             <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0",fontSize:"16px",fontWeight:700,color:"#3D2817",borderTop:"2px solid #E5D3B6",marginTop:"4px"}}>
               <span>Total</span>
               <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#A35E1B"}}>
-                {fee ? `${Number(fee) / 1e18} ETH` : "0.00825 ETH"} + gas
+                {fee ? `${Number(fee) / 1e18} ETH` : partnerActive ? "…" : "0.00825 ETH"} + gas
               </span>
             </div>
+            {partnerActive && (
+              <div style={{fontSize:"12px",color:"#8A6B4E",marginTop:"-6px",paddingBottom:"8px",textAlign:"right"}}>
+                Price set by {partnerInfo.name || "partner"} · includes the {partnerInfo.baseFee ? Number(partnerInfo.baseFee) / 1e18 : 0.00825} ETH protocol fee
+              </div>
+            )}
 
             <div style={{background:"#F5E6D0",borderRadius:"12px",padding:"14px",fontSize:"13px",color:"#5C3E25",lineHeight:1.5,marginTop:"16px",marginBottom:"24px"}}>
               <strong>What happens next:</strong> Your photo is uploaded to IPFS, the profile HTML is generated and pinned, then a single on-chain transaction registers <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> to your wallet and sets the contenthash.
