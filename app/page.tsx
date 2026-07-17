@@ -105,6 +105,32 @@ export default function LandingPage() {
         .domain-body .domain-url{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--amber-dark);margin-bottom:10px;}
         .domain-body p{margin:0;font-size:14px;color:var(--brown-2);}
         .domain-count{position:absolute;top:20px;right:24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brown-3);letter-spacing:0.05em;}
+        .integrate{padding:96px 0;background:var(--cream-2);border-top:1px solid var(--line);}
+        .integrate-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center;}
+        .integrate-grid>*{min-width:0;}
+        .int-steps{list-style:none;padding:0;margin:0 0 28px;display:grid;gap:22px;}
+        .int-steps li{display:grid;grid-template-columns:40px 1fr;gap:16px;align-items:start;}
+        .int-num{font-family:'Fraunces',serif;font-weight:700;font-size:22px;letter-spacing:-0.02em;color:var(--amber-dark);line-height:1;padding-top:2px;}
+        .int-body h4{font-family:'Fraunces',serif;font-size:19px;font-weight:600;letter-spacing:-0.01em;margin:0 0 4px;line-height:1.2;}
+        .int-body p{margin:0;color:var(--brown-2);font-size:14.5px;line-height:1.55;}
+        .int-body p code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--white);padding:1px 6px;border-radius:5px;color:var(--brown);border:1px solid var(--line);}
+        .int-snippet{background:var(--brown);color:var(--cream);border-radius:14px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre;margin:0 0 24px;box-shadow:var(--shadow-sm);}
+        .int-snippet .tk{color:var(--amber-soft);}
+        .integrate-visual{position:relative;max-width:440px;width:100%;justify-self:end;}
+        .browser-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;transform:rotate(-1.5deg);}
+        .browser-chrome{display:flex;align-items:center;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--cream);}
+        .browser-dot{width:10px;height:10px;border-radius:50%;background:var(--cream-3);}
+        .browser-url{margin-left:10px;flex:1;background:var(--white);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brown-3);}
+        .browser-body{padding:22px;}
+        .shop-name{font-family:'Fraunces',serif;font-weight:700;font-size:20px;margin-bottom:2px;}
+        .shop-tag{font-size:12px;color:var(--brown-3);margin-bottom:14px;}
+        .shop-line{height:8px;border-radius:4px;background:var(--cream-2);margin-bottom:8px;}
+        .shop-line.short{width:62%;margin-bottom:18px;}
+        .widget-demo{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;background:var(--amber);color:var(--white);font-weight:600;font-size:14px;box-shadow:0 4px 14px rgba(61,40,23,.22);}
+        .earn-card{position:absolute;right:-14px;bottom:-34px;background:var(--brown);color:var(--cream);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-md);transform:rotate(3deg);min-width:220px;}
+        .earn-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(251,245,236,.6);margin-bottom:6px;}
+        .earn-amount{font-family:'Fraunces',serif;font-weight:700;font-size:26px;letter-spacing:-0.02em;color:var(--amber-soft);line-height:1.1;}
+        .earn-sub{font-size:11.5px;color:rgba(251,245,236,.65);margin-top:4px;}
         .pricing{padding:110px 0 120px;background:var(--brown);color:var(--cream);position:relative;overflow:hidden;}
         .pricing .section-kicker{color:var(--amber-soft);}
         .pricing .section-title{color:var(--white);}
@@ -134,7 +160,13 @@ export default function LandingPage() {
         .foot-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:28px;border-top:1px solid var(--line);font-size:13px;color:var(--brown-3);}
         .foot-bottom-links{display:flex;gap:24px;}
         @media(max-width:960px){
-          .hero{padding:48px 0 60px;}.hero-grid{grid-template-columns:1fr;gap:48px;}.hero-visual{justify-self:center;max-width:380px;}.nav-links{display:none;}.features{grid-template-columns:repeat(2,1fr);}.flows{grid-template-columns:1fr;}.domain-grid{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr 1fr;gap:32px;}.how,.get,.domains,.pricing{padding:72px 0;}
+          .hero{padding:48px 0 60px;}.hero-grid{grid-template-columns:1fr;gap:48px;}.hero-visual{justify-self:center;max-width:380px;}.nav-links{display:none;}.features{grid-template-columns:repeat(2,1fr);}.flows{grid-template-columns:1fr;}.domain-grid{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr 1fr;gap:32px;}.how,.get,.domains,.pricing,.integrate{padding:72px 0;}
+          .integrate-grid{grid-template-columns:1fr;gap:56px;}.integrate-visual{justify-self:center;margin-bottom:44px;}
+        }
+        @media(max-width:540px){
+          .int-snippet{font-size:10.5px;padding:14px;}
+          .earn-card{right:0;bottom:-38px;min-width:0;max-width:78%;}
+          .integrate-visual{margin-bottom:56px;}
         }
         @media(max-width:540px){
           .container{padding:0 20px;}.features{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr;}.foot-bottom{flex-direction:column;gap:14px;}.cta-row{flex-direction:column;align-items:stretch;}.btn{justify-content:center;}.hero-meta{gap:14px;}.price-card{padding:36px 26px;}.price-divider{margin:0 -26px 24px;}.price-amount{font-size:54px;}.domain-card{padding:30px 24px;gap:20px;}.domain-emoji{font-size:44px;}
@@ -161,6 +193,7 @@ export default function LandingPage() {
             <a href="#how">How it works</a>
             <a href="#features">What you get</a>
             <a href="#domains">Domains</a>
+            <a href="#integrate">For businesses</a>
             <a href="#pricing">Pricing</a>
           </nav>
           <Link href="/register/" className="nav-cta">
@@ -335,6 +368,77 @@ export default function LandingPage() {
                 <p>For tabbies, tuxedos, and the occasional dignified tortie.</p>
               </div>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="integrate" id="integrate">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">For vets &amp; pet shops</div>
+            <h2 className="section-title">Your counter. <em>Your</em> price.</h2>
+            <p className="section-lede">Sell PetID registrations from your clinic, shop or grooming salon. You set the price, customers mint on the spot, and your margin accrues on-chain — withdraw whenever you like.</p>
+          </div>
+          <div className="integrate-grid">
+            <div>
+              <ol className="int-steps">
+                <li>
+                  <div className="int-num">01</div>
+                  <div className="int-body">
+                    <h4>Set your price</h4>
+                    <p>Connect your business wallet on the partner dashboard and choose what customers pay. Everything above the <code>0.00825 ETH</code> protocol fee is yours.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="int-num">02</div>
+                  <div className="int-body">
+                    <h4>Drop one line on your site</h4>
+                    <p>A script tag renders the PetID button; an iframe embeds the whole flow. No build tools, no account, ~3 kB. Or just share your link at the counter.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="int-num">03</div>
+                  <div className="int-body">
+                    <h4>Earn per registration</h4>
+                    <p>Attribution is on-chain and automatic — every mint through your widget credits your wallet. No invoices, no payout schedules, no minimums.</p>
+                  </div>
+                </li>
+              </ol>
+              <pre className="int-snippet">{`<script src="`}<span className="tk">https://unpkg.com/@petidentity/widget</span>{`"\n        data-partner="`}<span className="tk">0xYOUR_WALLET</span>{`"></script>`}</pre>
+              <div className="cta-row">
+                <Link href="/partner/" className="btn btn-primary">
+                  Open the partner dashboard
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </Link>
+                <a href="https://www.npmjs.com/package/@petidentity/widget" target="_blank" rel="noopener noreferrer" className="btn btn-outline">
+                  Widget docs <span className="btn-price">npm</span>
+                </a>
+              </div>
+            </div>
+            <div className="integrate-visual" aria-hidden="true">
+              <div className="browser-card">
+                <div className="browser-chrome">
+                  <span className="browser-dot"/><span className="browser-dot"/><span className="browser-dot"/>
+                  <span className="browser-url">happypawsclinic.com</span>
+                </div>
+                <div className="browser-body">
+                  <div className="shop-name">Happy Paws Clinic 🩺</div>
+                  <div className="shop-tag">Veterinary care · Mon–Sat 9–18</div>
+                  <div className="shop-line"/>
+                  <div className="shop-line"/>
+                  <div className="shop-line short"/>
+                  <span className="widget-demo">
+                    <svg width="16" height="16" aria-hidden="true"><use href="#paw" style={{color:"#FFFDF8"}}/></svg>
+                    Create your pet&apos;s PetID
+                  </span>
+                </div>
+              </div>
+              <div className="earn-card">
+                <div className="earn-label">You keep · per registration</div>
+                <div className="earn-amount">0.01175 ETH</div>
+                <div className="earn-sub">at a 0.02 ETH listing · withdraw anytime</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

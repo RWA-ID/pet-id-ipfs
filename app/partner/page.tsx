@@ -115,12 +115,83 @@ export default function PartnerDashboard() {
         </p>
 
         {!isConnected ? (
-          <div style={card}>
-            <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px",lineHeight:1.6}}>
-              Connect the wallet that will receive your earnings to get started.
-            </p>
-            <button style={btnPrimary} onClick={openConnectModal}>Connect Wallet</button>
-          </div>
+          <>
+            <div style={card}>
+              <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px",lineHeight:1.6}}>
+                Connect the wallet that will receive your earnings to get started — going live takes one transaction.
+              </p>
+              <button style={btnPrimary} onClick={openConnectModal}>Connect Wallet</button>
+            </div>
+
+            {/* At the clinic / at the counter */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"18px",margin:"4px 0 20px"}}>
+              {[
+                { src: "/images/vet.jpg", alt: "Veterinarian examining a white kitten with a stethoscope", caption: "At the clinic — a PetID with every checkup", rotate: "-1.2deg" },
+                { src: "/images/petshop.jpg", alt: "A young dog standing in a pet shop aisle", caption: "At the counter — sell it like any accessory", rotate: "1.2deg" },
+              ].map((img) => (
+                <figure key={img.src} style={{margin:0,background:"#FFFDF8",border:"1px solid #E5D3B6",borderRadius:"20px",padding:"10px 10px 12px",boxShadow:"0 2px 12px rgba(61,40,23,.08)",transform:`rotate(${img.rotate})`}}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.src} alt={img.alt} style={{width:"100%",aspectRatio:"3/2",objectFit:"cover",borderRadius:"12px",display:"block"}}/>
+                  <figcaption style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:"#8A6B4E",textAlign:"center",paddingTop:"10px"}}>
+                    {img.caption}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+
+            {/* How it works */}
+            <div style={card}>
+              <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 18px"}}>How it works</h2>
+              {[
+                ["01", "Set your price", `Choose what customers pay for a PetID registration. The ${baseFeeEth} ETH protocol fee goes to the PetID registrar — everything above it is your margin. Update your price or business name anytime, instantly.`],
+                ["02", "Share your link or embed the widget", "Every partner gets a personal registration link plus a one-line website widget (button or full inline flow). Customers who come through it pay your price — attribution happens in the transaction itself, so it can't be faked or forgotten."],
+                ["03", "Earnings accrue on-chain", "Your margin from every registration accumulates in the router smart contract under your wallet address. Withdraw whenever you like — no minimums, no payout schedules, no invoices, no one to ask."],
+              ].map(([n, title, body]) => (
+                <div key={n} style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"14px",padding:"14px 0",borderTop: n === "01" ? "none" : "1px dashed #E5D3B6"}}>
+                  <div style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"20px",color:"#A35E1B"}}>{n}</div>
+                  <div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontWeight:600,fontSize:"17px",marginBottom:"4px"}}>{title}</div>
+                    <div style={{fontSize:"14px",color:"#5C3E25",lineHeight:1.6}}>{body}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* What customers get */}
+            <div style={card}>
+              <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 6px"}}>What your customers get</h2>
+              <p style={{color:"#5C3E25",fontSize:"14px",margin:"0 0 16px",lineHeight:1.6}}>
+                A PetID is a permanent digital identity for a dog or cat — a real product you can sell at the counter, at checkout, or during a vet visit:
+              </p>
+              <ul style={{margin:0,paddingLeft:"20px",display:"grid",gap:"10px",fontSize:"14px",color:"#5C3E25",lineHeight:1.55}}>
+                <li><b style={{color:"#3D2817"}}>An ENS name of their own</b> — <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12.5px"}}>max.dogid.eth</span> or <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12.5px"}}>luna.catid.eth</span>, owned by their wallet forever. No renewals.</li>
+                <li><b style={{color:"#3D2817"}}>A profile page hosted on IPFS</b> — photo, bio, health info, vet contact and emergency notes, in one of four designs.</li>
+                <li><b style={{color:"#3D2817"}}>A printable QR collar tag</b> — anyone who finds the pet scans it and reaches the owner with one tap (call, WhatsApp, Telegram or email).</li>
+              </ul>
+            </div>
+
+            {/* FAQ */}
+            <div style={card}>
+              <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 18px"}}>Common questions</h2>
+              {[
+                ["Do I need to understand crypto?", "You need a wallet (MetaMask, Coinbase Wallet, etc.) to receive earnings — that's it. Your customers pay in ETH through their own wallets; the smart contract handles pricing, minting and your margin automatically."],
+                ["Does it cost anything to join?", "No signup fee and no subscription. Going live is a single on-chain transaction (a few cents of gas). PetID currently takes no cut of your margin."],
+                ["What do customers actually pay?", `Exactly the price you set — shown transparently in the flow, including the ${baseFeeEth} ETH protocol fee breakdown. Overpayments are refunded automatically in the same transaction.`],
+                ["When can I withdraw?", "Anytime. Your earnings sit in the router smart contract under your address — only you can withdraw them, and PetID can't touch them. The contract source is verified on Etherscan."],
+                ["Can I change my price later?", "Yes, instantly, as often as you like. Setting the price to zero pauses your listing."],
+                ["Is this custodial?", "No. Registrations mint directly to the customer's wallet, and your margin is claimable only by your wallet. The contract is verified on Etherscan — see the link below."],
+              ].map(([q, a], i) => (
+                <div key={q} style={{padding:"12px 0",borderTop: i === 0 ? "none" : "1px dashed #E5D3B6"}}>
+                  <div style={{fontWeight:700,fontSize:"14.5px",marginBottom:"4px"}}>{q}</div>
+                  <div style={{fontSize:"14px",color:"#5C3E25",lineHeight:1.6}}>{a}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{textAlign:"center"}}>
+              <button style={{...btnPrimary,width:"auto",padding:"14px 32px"}} onClick={openConnectModal}>🐾 Become a partner</button>
+            </div>
+          </>
         ) : (
           <>
             {/* Earnings */}
