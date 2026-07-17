@@ -45,13 +45,15 @@ interface PetForm {
   ownerName: string;
   ownerPhone: string;
   ownerEmail: string;
+  ownerWhatsapp: string;
+  ownerTelegram: string;
 }
 
 const INITIAL_FORM: PetForm = {
   name: "", breed: "", color: "", ageYears: "", sex: "unknown", microchip: "",
   neutered: false, weight: "", vetName: "", vaccinated: false, emergencyNotes: "",
   bio: "", favFood: "", favToy: "",
-  ownerName: "", ownerPhone: "", ownerEmail: "",
+  ownerName: "", ownerPhone: "", ownerEmail: "", ownerWhatsapp: "", ownerTelegram: "",
 };
 
 // ─── small helpers ────────────────────────────────────────────────────────────
@@ -118,13 +120,14 @@ export default function RegisterWizard() {
   const [mintPhase, setMintPhase] = useState<MintPhase>("idle");
   const [mintError, setMintError] = useState("");
   const [profileCid, setProfileCid] = useState("");
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const [txHash, setTxHash] = useState("");
   const qrRef = useRef<HTMLDivElement>(null);
 
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { disconnect } = useDisconnect();
-  const { register, fee, hash, isPending, isConfirming, isSuccess, error: wagmiError } = useRegister(namespace);
+  const { register, reset: resetWrite, fee, hash, isPending, isConfirming, isSuccess, error: wagmiError } = useRegister(namespace);
 
   const REGISTRAR_ADDRESS = process.env.NEXT_PUBLIC_PETID_REGISTRAR_ADDRESS as `0x${string}`;
   const IS_AVAILABLE_ABI = [{
@@ -209,49 +212,71 @@ export default function RegisterWizard() {
   const setField = (k: keyof PetForm, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // invalidate cached IPFS uploads whenever their inputs change,
+  // so a retry after edits never mints a stale profile
+  useEffect(() => {
+    if (mintPhase === "idle" || mintPhase === "error") setProfileCid("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, template, namespace, subdomain]);
+  useEffect(() => {
+    if (mintPhase === "idle" || mintPhase === "error") {
+      setUploadedPhotoUrl(null);
+      setProfileCid("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoFile]);
+
   // ── mint pipeline ──
+  // Uploads are cached (uploadedPhotoUrl / profileCid), so if the on-chain tx
+  // fails or is rejected, retrying skips straight to the wallet confirmation.
   const handleMint = async () => {
     if (!fee) {
       setMintError("Fee not loaded yet — please wait a moment and try again.");
       setMintPhase("error");
       return;
     }
-    setMintPhase("uploading-photo");
+    resetWrite(); // clear any previous tx error so the retry isn't instantly re-flagged
     setMintError("");
     try {
-      let photoCidUrl: string | undefined;
-      if (photoFile) {
+      let photoCidUrl = uploadedPhotoUrl ?? undefined;
+      if (photoFile && !photoCidUrl) {
+        setMintPhase("uploading-photo");
         const photoCid = await uploadFileToPinata(photoFile, `${subdomain}-photo`);
         photoCidUrl = ipfsUrl(photoCid);
+        setUploadedPhotoUrl(photoCidUrl);
       }
 
-      setMintPhase("uploading-profile");
-      const html = generateProfileHtml({
-        name: form.name,
-        ens: `${subdomain}.${namespace}`,
-        photoUrl: photoCidUrl,
-        breed: form.breed || undefined,
-        color: form.color || undefined,
-        ageYears: form.ageYears || undefined,
-        sex: form.sex,
-        microchip: form.microchip || undefined,
-        neutered: form.neutered,
-        weight: form.weight || undefined,
-        vetName: form.vetName || undefined,
-        vaccinated: form.vaccinated,
-        favFood: form.favFood || undefined,
-        favToy: form.favToy || undefined,
-        bio: form.bio || undefined,
-        emergencyNotes: form.emergencyNotes || undefined,
-        ownerName: form.ownerName,
-        ownerPhone: form.ownerPhone || undefined,
-        ownerEmail: form.ownerEmail || undefined,
-        ownerWallet: address,
-        templateId: template?.id,
-      });
-
-      const pageCid = await uploadHtmlToPinata(html, `${subdomain}-petid.html`);
-      setProfileCid(pageCid);
+      let pageCid = profileCid;
+      if (!pageCid) {
+        setMintPhase("uploading-profile");
+        const html = generateProfileHtml({
+          name: form.name,
+          ens: `${subdomain}.${namespace}`,
+          photoUrl: photoCidUrl,
+          breed: form.breed || undefined,
+          color: form.color || undefined,
+          ageYears: form.ageYears || undefined,
+          sex: form.sex,
+          microchip: form.microchip || undefined,
+          neutered: form.neutered,
+          weight: form.weight || undefined,
+          vetName: form.vetName || undefined,
+          vaccinated: form.vaccinated,
+          favFood: form.favFood || undefined,
+          favToy: form.favToy || undefined,
+          bio: form.bio || undefined,
+          emergencyNotes: form.emergencyNotes || undefined,
+          ownerName: form.ownerName,
+          ownerPhone: form.ownerPhone || undefined,
+          ownerEmail: form.ownerEmail || undefined,
+          ownerWhatsapp: form.ownerWhatsapp || undefined,
+          ownerTelegram: form.ownerTelegram || undefined,
+          ownerWallet: address,
+          templateId: template?.id,
+        });
+        pageCid = await uploadHtmlToPinata(html, `${subdomain}-petid.html`);
+        setProfileCid(pageCid);
+      }
 
       const contenthash = cidToContenthash(pageCid);
       setMintPhase("waiting-wallet");
@@ -460,8 +485,17 @@ export default function RegisterWizard() {
               {filteredTemplates.map((t) => (
                 <button key={t.id} className={`tmpl-btn${template?.id === t.id ? " active" : ""}`}
                   onClick={() => setTemplate(t)}>
-                  <div style={{fontSize:"36px",marginBottom:"10px",textAlign:"center"}}>
-                    {t.species === "dog" ? "🐕" : "🐈"}
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}}>
+                    <span style={{fontSize:"30px"}}>{t.species === "dog" ? "🐕" : "🐈"}</span>
+                    <span style={{display:"inline-flex",gap:"4px"}}>
+                      {t.swatch.map((c, i) => (
+                        <span key={i} style={{width:"18px",height:"18px",borderRadius:"50%",background:c,border:"1px solid rgba(61,40,23,.18)"}}/>
+                      ))}
+                    </span>
+                  </div>
+                  <div style={{height:"34px",borderRadius:"8px",background:t.swatch[0],border:"1px solid rgba(61,40,23,.12)",marginBottom:"10px",display:"flex",alignItems:"center",gap:"6px",padding:"0 8px"}}>
+                    <span style={{width:"9px",height:"9px",borderRadius:"50%",background:t.swatch[2]}}/>
+                    <span style={{flex:1,height:"5px",borderRadius:"3px",background:t.swatch[1],opacity:.85}}/>
                   </div>
                   <div style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"16px",color:"#3D2817",marginBottom:"4px"}}>{t.name}</div>
                   <div style={{fontSize:"12px",color:"#8A6B4E",lineHeight:1.4}}>{t.description}</div>
@@ -612,6 +646,17 @@ export default function RegisterWizard() {
                     <input type="email" style={inputStyle} value={form.ownerEmail} onChange={(e) => setField("ownerEmail", e.target.value)} placeholder="you@example.com"/>
                   </Field>
                 </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+                  <Field label="WhatsApp">
+                    <input type="tel" style={inputStyle} value={form.ownerWhatsapp} onChange={(e) => setField("ownerWhatsapp", e.target.value)} placeholder="+1 555 000 0000"/>
+                  </Field>
+                  <Field label="Telegram">
+                    <input type="text" style={inputStyle} value={form.ownerTelegram} onChange={(e) => setField("ownerTelegram", e.target.value)} placeholder="@username"/>
+                  </Field>
+                </div>
+                <p style={{fontSize:"12px",color:"#8A6B4E",margin:"-4px 0 0",lineHeight:1.5}}>
+                  WhatsApp and Telegram appear as one-tap contact buttons on your pet&apos;s page — the fastest way for a finder to reach you.
+                </p>
                 <div style={{background:"#F5E6D0",borderRadius:"10px",padding:"10px 14px",fontSize:"13px",color:"#5C3E25",fontFamily:"'JetBrains Mono',monospace"}}>
                   Wallet: {address?.slice(0,8)}…{address?.slice(-6)}
                 </div>
@@ -653,6 +698,8 @@ export default function RegisterWizard() {
               ["Template", template?.name || "—"],
               ["Owner", form.ownerName],
               ["Email", form.ownerEmail],
+              ["WhatsApp", form.ownerWhatsapp || "—"],
+              ["Telegram", form.ownerTelegram || "—"],
               ["Photo", photoFile ? photoFile.name : "None"],
             ].map(([k, v]) => (
               <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px dashed #E5D3B6",fontSize:"14px"}}>
@@ -723,6 +770,11 @@ export default function RegisterWizard() {
                 {mintPhase === "error" && (
                   <div style={{background:"#FDF0F0",border:"1px solid #E5C0C0",borderRadius:"12px",padding:"14px",marginTop:"20px",fontSize:"13px",color:"#C0392B",lineHeight:1.5}}>
                     {mintError || "Unknown error. Please try again."}
+                    {profileCid && (
+                      <div style={{marginTop:"8px",color:"#8A6B4E",fontSize:"12px"}}>
+                        Your profile is already pinned to IPFS — retrying only resubmits the transaction, nothing is re-uploaded.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -733,9 +785,14 @@ export default function RegisterWizard() {
                 )}
 
                 {mintPhase === "error" && (
-                  <button style={{...btnOutline, marginTop:"24px"}} onClick={() => { setMintPhase("idle"); setStep(4); }}>
-                    ← Go back and retry
-                  </button>
+                  <div style={{display:"flex",gap:"12px",marginTop:"24px"}}>
+                    <button style={btnOutline} onClick={() => { setMintPhase("idle"); setStep(4); }}>
+                      ← Back to review
+                    </button>
+                    <button style={btnPrimary} onClick={() => handleMint()}>
+                      ↻ Retry transaction
+                    </button>
+                  </div>
                 )}
               </>
             ) : (

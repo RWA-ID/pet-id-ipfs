@@ -46,7 +46,7 @@ export function useRegistrationFee() {
 }
 
 export function useRegister(parentDomain: "dogid.eth" | "catid.eth") {
-  const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
+  const { writeContractAsync, reset, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const { fee } = useRegistrationFee();
 
@@ -61,5 +61,5 @@ export function useRegister(parentDomain: "dogid.eth" | "catid.eth") {
     });
   };
 
-  return { register, fee, hash, isPending, isConfirming, isSuccess, error };
+  return { register, reset, fee, hash, isPending, isConfirming, isSuccess, error };
 }
