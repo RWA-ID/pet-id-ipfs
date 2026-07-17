@@ -393,10 +393,28 @@ body{font-family:${t.body};background:${t.bg};color:${t.text};min-height:100vh;-
   function downloadQR() {
     var canvas = document.querySelector("#qrcode canvas");
     if (!canvas) { setTimeout(downloadQR, 200); return; }
+    var filename = ${JSON.stringify(p.name.replace(/\s+/g, "-").toLowerCase() + "-petid-qr.png")};
+    canvas.toBlob(function (blob) {
+      if (!blob) return;
+      var file = new File([blob], filename, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(function (err) {
+          if (err && err.name !== "AbortError") saveBlob(blob, filename);
+        });
+      } else {
+        saveBlob(blob, filename);
+      }
+    }, "image/png");
+  }
+  function saveBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
-    link.download = ${JSON.stringify(p.name.replace(/\s+/g, "-").toLowerCase() + "-petid-qr.png")};
-    link.href = canvas.toDataURL("image/png");
+    link.download = filename;
+    link.href = url;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
   }
 </script>
 </body>

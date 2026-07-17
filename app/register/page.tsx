@@ -872,10 +872,28 @@ export default function RegisterWizard() {
                     onClick={() => {
                       const canvas = qrRef.current?.querySelector("canvas");
                       if (!canvas) return;
-                      const link = document.createElement("a");
-                      link.download = `${form.name.replace(/\s+/g, "-").toLowerCase()}-petid-qr.png`;
-                      link.href = (canvas as HTMLCanvasElement).toDataURL("image/png");
-                      link.click();
+                      const filename = `${form.name.replace(/\s+/g, "-").toLowerCase()}-petid-qr.png`;
+                      const saveBlob = (blob: Blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.download = filename;
+                        link.href = url;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                      };
+                      (canvas as HTMLCanvasElement).toBlob((blob) => {
+                        if (!blob) return;
+                        const file = new File([blob], filename, { type: "image/png" });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          navigator.share({ files: [file] }).catch((err) => {
+                            if (err?.name !== "AbortError") saveBlob(blob);
+                          });
+                        } else {
+                          saveBlob(blob);
+                        }
+                      }, "image/png");
                     }}
                   >
                     ⬇ Download QR Code
