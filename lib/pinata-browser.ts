@@ -3,9 +3,12 @@ const JWT = () => process.env.NEXT_PUBLIC_PINATA_JWT!;
 export async function uploadFileToPinata(file: File | Blob, filename: string): Promise<string> {
   const form = new FormData();
   form.append("file", file, filename);
-  form.append("network", "public");
+  form.append("pinataMetadata", JSON.stringify({ name: filename }));
+  form.append("pinataOptions", JSON.stringify({ cidVersion: 1 }));
 
-  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
+  // v1 pinFileToIPFS rather than the v3 uploads API: the shared upload-only
+  // key is scoped to this endpoint, and v3 is a separate permission.
+  const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
     method: "POST",
     headers: { Authorization: `Bearer ${JWT()}` },
     body: form,
@@ -15,7 +18,9 @@ export async function uploadFileToPinata(file: File | Blob, filename: string): P
     throw new Error(`Pinata upload failed (${res.status}): ${text}`);
   }
   const json = await res.json();
-  return json.data.cid as string; // CIDv1 bafy...
+  // CIDv1. Single files come back raw-codec (bafkrei…) rather than dag-pb
+  // (bafybei…); cidToContenthash() calls .toV1() so either is fine.
+  return json.IpfsHash as string;
 }
 
 export async function uploadHtmlToPinata(html: string, filename: string): Promise<string> {
