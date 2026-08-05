@@ -6,10 +6,11 @@ Your customers mint an ENS identity for their pet (`max.dogid.eth` / `luna.catid
 
 ## 1. Become a partner
 
-Reseller access is **approved per wallet**, so there are two steps:
+Reseller access is an **allowlist keyed to a wallet address**, so there are three steps:
 
-1. Open [petid.eth.link/partner](https://petid.eth.link/partner/), connect the wallet that should receive earnings, and send us the request shown there.
-2. Once approved, come back and set your business name and customer price. You're live.
+1. Open [petid.eth.link/partner](https://petid.eth.link/partner/) and connect the wallet that should receive your earnings.
+2. Fill in the short application that appears — business, contact, location, expected volume. We review by hand, usually within a couple of business days, and reply by email. Approval is granted to **the exact wallet you applied with**, so come back with the same one.
+3. Once approved, the same page becomes your dashboard: set your business name and customer price in one transaction and you're live.
 
 Prices are held in **US dollars**, so your margin doesn't drift when the ETH rate moves. Set your price to `0` at any time to pause your listing.
 

@@ -116,7 +116,7 @@ When the wizard is opened with `?partner=0x…` it shows an "In partnership with
 
 | Contract | Address | Role |
 |---|---|---|
-| **`PetIDRegistrarV4`** | [`0xfe4059C99e510C2A039949e77c7c38D7ee99ac53`](https://etherscan.io/address/0xfe4059C99e510C2A039949e77c7c38D7ee99ac53#code) | **live** — USD pricing, ETH + USDC payment, reseller wholesale, margin accounting, withdrawals |
+| **`PetIDRegistrarV4`** | [`0xfe4059C99e510C2A039949e77c7c38D7ee99ac53`](https://etherscan.io/address/0xfe4059C99e510C2A039949e77c7c38D7ee99ac53#code) | **live**, verified — USD pricing, ETH + USDC payment, reseller wholesale, margin accounting, withdrawals |
 | USDC | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | payment asset; `registerWithUsdcPermit` avoids a separate approve tx |
 | ENS `NameWrapper` | `0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401` | wraps `dogid.eth` / `catid.eth`; subnames are wrapped ERC-1155s |
 | `PetSubnameRegistrar` v3 | [`0xfd428E9188c9D858D48Ca2fEE9199Cc2d66D61C1`](https://etherscan.io/address/0xfd428E9188c9D858D48Ca2fEE9199Cc2d66D61C1#code) | superseded — fixed ETH fee, no USDC, no built-in reseller |
