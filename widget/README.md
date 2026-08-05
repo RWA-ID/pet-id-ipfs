@@ -2,11 +2,16 @@
 
 Embeddable [PetID](https://petid.eth.link) widget for pet shops, vets and groomers.
 
-Your customers mint an ENS identity for their pet (`max.dogid.eth` / `luna.catid.eth`) with a permanent IPFS profile page and a QR collar tag — at **your price**. You keep everything above the protocol fee, settled on-chain by the `PetIDPartnerRouter` contract. No invoices, no revenue share paperwork; withdraw your earnings anytime.
+Your customers mint an ENS identity for their pet (`max.dogid.eth` / `luna.catid.eth`) with a permanent IPFS profile page and a QR collar tag — at **your price**, set in dollars. You keep everything above the wholesale price, settled on-chain by the `PetIDRegistrarV4` contract. No invoices, no revenue share paperwork; withdraw your earnings anytime.
 
-## 1. Become a partner (one transaction)
+## 1. Become a partner
 
-Open [petid.eth.link/partner](https://petid.eth.link/partner/), connect the wallet that should receive earnings, set your business name and price. That's it — you're live.
+Reseller access is **approved per wallet**, so there are two steps:
+
+1. Open [petid.eth.link/partner](https://petid.eth.link/partner/), connect the wallet that should receive earnings, and send us the request shown there.
+2. Once approved, come back and set your business name and customer price. You're live.
+
+Prices are held in **US dollars**, so your margin doesn't drift when the ETH rate moves. Set your price to `0` at any time to pause your listing.
 
 ## 2. Add the widget to your site
 
@@ -44,9 +49,9 @@ Link anywhere: `https://petid.eth.link/register/?partner=0xYOUR_WALLET`
 
 ## How the money flows
 
-1. Customer pays your price in ETH in one transaction.
-2. The router forwards the protocol fee to the PetID registrar, which mints the ENS subname straight to the customer's wallet with the IPFS profile attached.
-3. Your margin accrues in the router contract — withdraw anytime from the [partner dashboard](https://petid.eth.link/partner/).
+1. Customer pays your price in one transaction, in **ETH or USDC**. The dollar price is converted at the live rate, and any excess ETH is refunded in the same transaction.
+2. The registrar mints the ENS subname straight to the customer's wallet with the IPFS profile attached.
+3. Your margin — everything above wholesale — accrues to your address inside the registrar contract. Withdraw anytime from the [partner dashboard](https://petid.eth.link/partner/); only your wallet can claim it.
 
 Attribution is on-chain and unfakeable: the registration transaction itself carries your partner address.
 

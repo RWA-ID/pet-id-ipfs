@@ -30,6 +30,8 @@ const inputStyle: React.CSSProperties = {
   background:"#FFFDF8", color:"#3D2817",
 };
 
+const RESELLER_EMAIL = "petid@onchain-id.id";
+
 function CopyBlock({ label, code }: { label: string; code: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -223,13 +225,20 @@ export default function PartnerDashboard() {
             </p>
             <CopyBlock label="Your wallet address" code={address ?? ""} />
             <a
-              href={`mailto:petid@onchain-id.id?subject=${encodeURIComponent("PetID reseller access")}&body=${encodeURIComponent(`Wallet: ${address ?? ""}\n\nBusiness name:\nType of business (vet / pet shop / groomer):\nCity:\n`)}`}
+              href={`mailto:${RESELLER_EMAIL}?subject=${encodeURIComponent("PetID reseller access")}&body=${encodeURIComponent(`Wallet: ${address ?? ""}\n\nBusiness name:\nType of business (vet / pet shop / groomer):\nCity:\n`)}`}
               style={{...btnPrimary, textDecoration:"none"}}
             >
               Request access by email
             </a>
+            {/* mailto: silently does nothing on devices with no mail client
+                configured, so the address has to be readable and copyable too —
+                otherwise a dead button is a dead end. */}
+            <p style={{fontSize:"13px",color:"#5C3E25",lineHeight:1.6,marginTop:"14px",marginBottom:"6px",textAlign:"center"}}>
+              Button not working? Email us directly:
+            </p>
+            <CopyBlock label="Email" code={RESELLER_EMAIL} />
             <p style={{fontSize:"12.5px",color:"#8A6B4E",lineHeight:1.6,marginTop:"16px",marginBottom:0,textAlign:"center"}}>
-              Already approved? Make sure you&apos;re connected with the exact wallet you sent us.
+              Include your wallet address above. Already approved? Make sure you&apos;re connected with the exact wallet you sent us.
             </p>
           </div>
         ) : (

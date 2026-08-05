@@ -1,6 +1,6 @@
 {
   "name": "@petidentity/widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Embeddable PetID widget for pet shops, vets and groomers — let customers mint ENS pet identities at your price and earn the margin on-chain.",
   "main": "dist/widget.js",
   "browser": "dist/widget.js",
