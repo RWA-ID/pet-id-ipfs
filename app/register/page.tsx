@@ -5,8 +5,19 @@ import { useAccount, useDisconnect, useReadContract } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { namehash } from "viem/ens";
 import { useDebounce } from "use-debounce";
-import { useRegister } from "@/hooks/useRegister";
-import { usePartnerInfo, useRegisterViaPartner } from "@/hooks/usePartnerRouter";
+import {
+  useRegisterV4,
+  useQuote,
+  usePartnerInfo,
+  useUsdcBalance,
+  useIsWholesaler,
+  formatUsd,
+  formatEth,
+  formatUsdc,
+  REGISTRAR_ADDRESS,
+  REGISTRAR_V4_ABI,
+  type PayWith,
+} from "@/hooks/useRegistrarV4";
 import { TEMPLATES } from "@/lib/templates/registry";
 import { uploadFileToPinata, uploadHtmlToPinata, ipfsUrl } from "@/lib/pinata-browser";
 import { cidToContenthash } from "@/lib/contenthash";
@@ -19,6 +30,7 @@ type MintPhase =
   | "idle"
   | "uploading-photo"
   | "uploading-profile"
+  | "approving-usdc"
   | "waiting-wallet"
   | "confirming"
   | "done"
@@ -136,32 +148,40 @@ export default function RegisterWizard() {
     if (p && /^0x[0-9a-fA-F]{40}$/.test(p)) setPartnerAddr(p as `0x${string}`);
   }, []);
   const partnerInfo = usePartnerInfo(partnerAddr);
-  const partnerActive = !!partnerAddr && !!partnerInfo.price && partnerInfo.price > 0n;
+  const partnerActive =
+    !!partnerAddr && !!partnerInfo.priceUsdCents && partnerInfo.priceUsdCents > 0n;
+  const partnerArg = partnerActive ? partnerAddr : undefined;
 
-  const direct = useRegister(namespace);
-  const viaPartner = useRegisterViaPartner(namespace);
+  // ── payment ──
+  const [payWith, setPayWith] = useState<PayWith>("eth");
+  const quote = useQuote(partnerArg);
+  const { balance: usdcBalance } = useUsdcBalance();
+  const isWholesaler = useIsWholesaler();
 
-  const resetWrite = partnerActive ? viaPartner.reset : direct.reset;
-  const fee = partnerActive ? partnerInfo.price : direct.fee;
-  const { hash, isPending, isConfirming, isSuccess, error: wagmiError } =
-    partnerActive ? viaPartner : direct;
+  const {
+    register: registerV4,
+    reset: resetWrite,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: wagmiError,
+    usdcStep,
+  } = useRegisterV4(namespace);
+
+  const priced = quote.usdCents !== undefined;
+  const usdcShort =
+    payWith === "usdc" &&
+    usdcBalance !== undefined &&
+    quote.usdcAmount !== undefined &&
+    usdcBalance < quote.usdcAmount;
+
   const register = (label: string, contenthash: `0x${string}`) =>
-    partnerActive
-      ? viaPartner.register(label, contenthash, partnerAddr!, partnerInfo.price)
-      : direct.register(label, contenthash);
-
-  const REGISTRAR_ADDRESS = process.env.NEXT_PUBLIC_PETID_REGISTRAR_ADDRESS as `0x${string}`;
-  const IS_AVAILABLE_ABI = [{
-    name: "isAvailable",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "parentNode", type: "bytes32" }, { name: "label", type: "string" }],
-    outputs: [{ name: "available", type: "bool" }],
-  }] as const;
+    registerV4(label, contenthash, payWith, partnerArg);
 
   const { data: availableOnChain, isFetching: checking } = useReadContract({
     address: REGISTRAR_ADDRESS,
-    abi: IS_AVAILABLE_ABI,
+    abi: REGISTRAR_V4_ABI,
     functionName: "isAvailable",
     args: [namehash(namespace) as `0x${string}`, debouncedSub],
     query: { enabled: debouncedSub.length >= 3 && isConnected },
@@ -173,14 +193,18 @@ export default function RegisterWizard() {
 
   // sync wagmi tx state into mintPhase
   useEffect(() => {
-    if (isPending) setMintPhase("waiting-wallet");
+    // The USDC allowance leg runs before the mint itself — surface it as its own
+    // step so the second wallet prompt isn't a surprise.
+    if (usdcStep === "signing-permit" || usdcStep === "approving") {
+      setMintPhase("approving-usdc");
+    } else if (isPending) setMintPhase("waiting-wallet");
     if (isConfirming && hash) { setMintPhase("confirming"); setTxHash(hash); }
     if (isSuccess) setMintPhase("done");
     if (wagmiError && mintPhase !== "idle" && mintPhase !== "done") {
       setMintError(wagmiError.message.slice(0, 200));
       setMintPhase("error");
     }
-  }, [isPending, isConfirming, isSuccess, wagmiError, hash, mintPhase]);
+  }, [isPending, isConfirming, isSuccess, wagmiError, hash, mintPhase, usdcStep]);
 
   // auto-advance to step 1 when wallet connects
   useEffect(() => {
@@ -251,8 +275,15 @@ export default function RegisterWizard() {
   // Uploads are cached (uploadedPhotoUrl / profileCid), so if the on-chain tx
   // fails or is rejected, retrying skips straight to the wallet confirmation.
   const handleMint = async () => {
-    if (!fee) {
-      setMintError("Fee not loaded yet — please wait a moment and try again.");
+    if (!priced) {
+      setMintError("Price not loaded yet — please wait a moment and try again.");
+      setMintPhase("error");
+      return;
+    }
+    if (usdcShort) {
+      setMintError(
+        `Not enough USDC — this costs ${formatUsdc(quote.usdcAmount)} and your wallet holds ${formatUsdc(usdcBalance)}.`,
+      );
       setMintPhase("error");
       return;
     }
@@ -737,15 +768,72 @@ export default function RegisterWizard() {
               </div>
             ))}
 
-            <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0",fontSize:"16px",fontWeight:700,color:"#3D2817",borderTop:"2px solid #E5D3B6",marginTop:"4px"}}>
+            {/* ── payment method ── */}
+            <div style={{marginTop:"18px",marginBottom:"4px"}}>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A6B4E",marginBottom:"10px",fontWeight:500}}>
+                Pay with
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                {([
+                  { id: "eth" as PayWith, label: "ETH", sub: formatEth(quote.weiAmount) },
+                  { id: "usdc" as PayWith, label: "USDC", sub: formatUsdc(quote.usdcAmount) },
+                ]).map((opt) => {
+                  const on = payWith === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setPayWith(opt.id)}
+                      style={{
+                        display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"2px",
+                        padding:"12px 14px",borderRadius:"12px",cursor:"pointer",textAlign:"left",
+                        fontFamily:"inherit",
+                        border: on ? "1.5px solid #C87A2E" : "1.5px solid #E5D3B6",
+                        background: on ? "#FDF3E7" : "transparent",
+                        transition:"all .15s",
+                      }}
+                    >
+                      <span style={{fontWeight:700,fontSize:"15px",color:"#3D2817"}}>{opt.label}</span>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:"#8A6B4E"}}>
+                        {priced ? opt.sub : "…"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {payWith === "usdc" && (
+                <div style={{fontSize:"12px",color: usdcShort ? "#B3261E" : "#8A6B4E",marginTop:"8px",lineHeight:1.5}}>
+                  {usdcShort
+                    ? `Your wallet holds ${formatUsdc(usdcBalance)} — you need ${formatUsdc(quote.usdcAmount)}.`
+                    : "You'll approve the USDC spend first, then confirm the mint. Gas is still paid in ETH."}
+                </div>
+              )}
+            </div>
+
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"12px 0 4px",fontSize:"16px",fontWeight:700,color:"#3D2817",borderTop:"2px solid #E5D3B6",marginTop:"16px"}}>
               <span>Total</span>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#A35E1B"}}>
-                {fee ? `${Number(fee) / 1e18} ETH` : partnerActive ? "…" : "0.00825 ETH"} + gas
+              <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#A35E1B",fontSize:"20px"}}>
+                {priced ? formatUsd(quote.usdCents) : "…"}
               </span>
             </div>
+            <div style={{fontSize:"12px",color:"#8A6B4E",textAlign:"right",paddingBottom:"8px",fontFamily:"'JetBrains Mono',monospace"}}>
+              {priced
+                ? `≈ ${payWith === "eth" ? formatEth(quote.weiAmount) : formatUsdc(quote.usdcAmount)} + gas`
+                : " "}
+            </div>
             {partnerActive && (
-              <div style={{fontSize:"12px",color:"#8A6B4E",marginTop:"-6px",paddingBottom:"8px",textAlign:"right"}}>
-                Price set by {partnerInfo.name || "partner"} · includes the {partnerInfo.baseFee ? Number(partnerInfo.baseFee) / 1e18 : 0.00825} ETH protocol fee
+              <div style={{fontSize:"12px",color:"#8A6B4E",marginTop:"-4px",paddingBottom:"8px",textAlign:"right"}}>
+                Price set by {partnerInfo.name || "partner"}
+              </div>
+            )}
+            {!partnerActive && isWholesaler && (
+              <div style={{fontSize:"12px",color:"#2E7D32",marginTop:"-4px",paddingBottom:"8px",textAlign:"right",fontWeight:600}}>
+                Reseller wholesale price applied
+              </div>
+            )}
+            {payWith === "eth" && priced && (
+              <div style={{fontSize:"11.5px",color:"#8A6B4E",lineHeight:1.5,paddingBottom:"4px"}}>
+                The ETH amount is calculated from the live ETH/USD rate at the moment your
+                transaction is mined. Any excess is refunded automatically in the same transaction.
               </div>
             )}
 
@@ -756,11 +844,13 @@ export default function RegisterWizard() {
             <div style={{display:"flex",gap:"12px"}}>
               <button style={btnOutline} onClick={() => setStep(3)}>← Back</button>
               <button
-                style={{...btnPrimary, opacity: fee ? 1 : 0.4}}
-                disabled={!fee}
+                style={{...btnPrimary, opacity: priced && !usdcShort ? 1 : 0.4}}
+                disabled={!priced || usdcShort}
                 onClick={() => { setStep(5); handleMint(); }}
               >
-                {fee ? "🐾 Mint PetID" : "Loading fee…"}
+                {!priced ? "Loading price…"
+                  : usdcShort ? "Not enough USDC"
+                  : `🐾 Mint PetID · ${formatUsd(quote.usdCents)}`}
               </button>
             </div>
           </div>
@@ -775,15 +865,24 @@ export default function RegisterWizard() {
                   {mintPhase === "error" ? "Something went wrong" : "Minting your PetID…"}
                 </h2>
                 <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 28px"}}>
-                  {mintPhase === "waiting-wallet" ? "Check your wallet and confirm the transaction." :
+                  {mintPhase === "approving-usdc"
+                    ? (usdcStep === "signing-permit"
+                        ? "Sign the USDC approval in your wallet — this is a signature, not a transaction, so it's free."
+                        : "Approve the USDC spend in your wallet. The mint follows right after.") :
+                   mintPhase === "waiting-wallet" ? "Check your wallet and confirm the transaction." :
                    mintPhase === "confirming" ? "Transaction submitted — waiting for confirmation." :
                    mintPhase === "error" ? "You can go back and try again." :
                    "This takes a few moments, don't close the tab."}
                 </p>
 
                 {[
-                  { phase: "uploading-photo", label: "Uploading photo to IPFS", done: ["uploading-profile","uploading-profile","waiting-wallet","confirming","done","error"].includes(mintPhase) },
-                  { phase: "uploading-profile", label: "Generating & uploading profile page", done: ["waiting-wallet","confirming","done","error"].includes(mintPhase) },
+                  { phase: "uploading-photo", label: "Uploading photo to IPFS", done: ["uploading-profile","approving-usdc","waiting-wallet","confirming","done","error"].includes(mintPhase) },
+                  { phase: "uploading-profile", label: "Generating & uploading profile page", done: ["approving-usdc","waiting-wallet","confirming","done","error"].includes(mintPhase) },
+                  ...(payWith === "usdc" ? [{
+                    phase: "approving-usdc",
+                    label: usdcStep === "signing-permit" ? "Sign the USDC approval" : "Approving USDC spend",
+                    done: ["waiting-wallet","confirming","done"].includes(mintPhase),
+                  }] : []),
                   { phase: "waiting-wallet", label: "Waiting for wallet confirmation", done: ["confirming","done"].includes(mintPhase) },
                   { phase: "confirming", label: "Confirming on-chain", done: (["done"] as MintPhase[]).includes(mintPhase) },
                 ].map(({ phase, label, done }) => {

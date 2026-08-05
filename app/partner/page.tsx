@@ -3,7 +3,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAccount, useDisconnect } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
-import { usePartnerInfo, usePartnerAdmin, ROUTER_ADDRESS } from "@/hooks/usePartnerRouter";
+import {
+  usePartnerInfo,
+  usePartnerAdmin,
+  useIsWholesaler,
+  formatUsd,
+  formatEth,
+  formatUsdc,
+  REGISTRAR_ADDRESS,
+} from "@/hooks/useRegistrarV4";
 
 const SITE = "https://petid.eth.link";
 
@@ -12,6 +20,9 @@ const PAW_SVG = (
     <ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/>
   </svg>
 );
+
+/** JSX text can't interpolate `${...}`, so format dollars through this. */
+const usd = (n: number) => `$${n.toFixed(2)}`;
 
 const inputStyle: React.CSSProperties = {
   width:"100%", border:"1.5px solid #E5D3B6", borderRadius:"10px",
@@ -43,17 +54,19 @@ export default function PartnerDashboard() {
   const { disconnect } = useDisconnect();
   const info = usePartnerInfo(address);
   const admin = usePartnerAdmin();
+  const approved = useIsWholesaler();
 
-  const [priceEth, setPriceEth] = useState("");
+  const [priceUsd, setPriceUsd] = useState("");
   const [bizName, setBizName] = useState("");
   const [txMsg, setTxMsg] = useState("");
 
   // prefill form from on-chain state once loaded
   useEffect(() => {
-    if (info.price && info.price > 0n && priceEth === "") setPriceEth((Number(info.price) / 1e18).toString());
+    if (info.priceUsdCents && info.priceUsdCents > 0n && priceUsd === "")
+      setPriceUsd((Number(info.priceUsdCents) / 100).toFixed(2));
     if (info.name && bizName === "") setBizName(info.name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info.price, info.name]);
+  }, [info.priceUsdCents, info.name]);
 
   useEffect(() => {
     if (admin.isSuccess) { setTxMsg("✓ Confirmed on-chain"); info.refetch(); }
@@ -63,11 +76,15 @@ export default function PartnerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [admin.isSuccess, admin.isConfirming, admin.isPending, admin.error]);
 
-  const isActive = !!info.price && info.price > 0n;
-  const baseFeeEth = info.baseFee ? Number(info.baseFee) / 1e18 : 0.00825;
-  const priceNum = parseFloat(priceEth || "0");
-  const marginEth = priceNum > baseFeeEth ? priceNum - baseFeeEth : 0;
-  const priceValid = priceNum >= baseFeeEth;
+  const isActive = !!info.priceUsdCents && info.priceUsdCents > 0n;
+  // Wholesale is what a reseller pays the protocol per name. $14.99 by default.
+  const wholesaleUsd = info.wholesaleUsdCents ? Number(info.wholesaleUsdCents) / 100 : 14.99;
+  const priceNum = parseFloat(priceUsd || "0");
+  const marginUsd = priceNum > wholesaleUsd ? priceNum - wholesaleUsd : 0;
+  const priceValid = priceNum >= wholesaleUsd;
+  const priceCents = BigInt(Math.round(priceNum * 100));
+  const hasEarnings =
+    (info.accruedEth ?? 0n) > 0n || (info.accruedUsdc ?? 0n) > 0n;
 
   const registerUrl = `${SITE}/register/?partner=${address ?? "0xYOUR_WALLET"}`;
   const btnPrimary: React.CSSProperties = {
@@ -111,7 +128,7 @@ export default function PartnerDashboard() {
           Earn with PetID
         </h1>
         <p style={{color:"#5C3E25",fontSize:"16px",lineHeight:1.6,margin:"0 0 32px"}}>
-          Pet shops, vets and groomers: set your own price for PetID registrations, share your link or embed the widget, and keep everything above the {baseFeeEth} ETH protocol fee. Earnings accrue on-chain — withdraw anytime, no invoices, no waiting.
+          Pet shops, vets and groomers: buy PetID registrations at the {usd(wholesaleUsd)} reseller price, set your own customer price, and keep every dollar above it. Customers pay in ETH or USDC; your margin accrues on-chain — withdraw anytime, no invoices, no waiting.
         </p>
 
         {!isConnected ? (
@@ -143,9 +160,9 @@ export default function PartnerDashboard() {
             <div style={card}>
               <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 18px"}}>How it works</h2>
               {[
-                ["01", "Set your price", `Choose what customers pay for a PetID registration. The ${baseFeeEth} ETH protocol fee goes to the PetID registrar — everything above it is your margin. Update your price or business name anytime, instantly.`],
+                ["01", "Set your price", `Choose what customers pay for a PetID registration, in dollars. You pay PetID the $${wholesaleUsd.toFixed(2)} reseller price — everything above it is your margin. Update your price or business name anytime, instantly.`],
                 ["02", "Share your link or embed the widget", "Every partner gets a personal registration link plus a one-line website widget (button or full inline flow). Customers who come through it pay your price — attribution happens in the transaction itself, so it can't be faked or forgotten."],
-                ["03", "Earnings accrue on-chain", "Your margin from every registration accumulates in the router smart contract under your wallet address. Withdraw whenever you like — no minimums, no payout schedules, no invoices, no one to ask."],
+                ["03", "Earnings accrue on-chain", "Your margin from every registration accumulates in the registrar contract under your wallet address, in whichever asset the customer paid with. Withdraw whenever you like — no minimums, no payout schedules, no invoices, no one to ask."],
               ].map(([n, title, body]) => (
                 <div key={n} style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"14px",padding:"14px 0",borderTop: n === "01" ? "none" : "1px dashed #E5D3B6"}}>
                   <div style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"20px",color:"#A35E1B"}}>{n}</div>
@@ -174,11 +191,11 @@ export default function PartnerDashboard() {
             <div style={card}>
               <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 18px"}}>Common questions</h2>
               {[
-                ["Do I need to understand crypto?", "You need a wallet (MetaMask, Coinbase Wallet, etc.) to receive earnings — that's it. Your customers pay in ETH through their own wallets; the smart contract handles pricing, minting and your margin automatically."],
-                ["Does it cost anything to join?", "No signup fee and no subscription. Going live is a single on-chain transaction (a few cents of gas). PetID currently takes no cut of your margin."],
-                ["What do customers actually pay?", `Exactly the price you set — shown transparently in the flow, including the ${baseFeeEth} ETH protocol fee breakdown. Overpayments are refunded automatically in the same transaction.`],
-                ["When can I withdraw?", "Anytime. Your earnings sit in the router smart contract under your address — only you can withdraw them, and PetID can't touch them. The contract source is verified on Etherscan."],
-                ["Can I change my price later?", "Yes, instantly, as often as you like. Setting the price to zero pauses your listing."],
+                ["Do I need to understand crypto?", "You need a wallet (MetaMask, Coinbase Wallet, etc.) to receive earnings — that's it. Your customers pay in ETH or USDC through their own wallets; the smart contract handles pricing, minting and your margin automatically."],
+                ["Does it cost anything to join?", "No signup fee and no subscription. Reseller access is approved per wallet, then going live is a single on-chain transaction (a few cents of gas). PetID currently takes no cut of your margin."],
+                ["What do customers actually pay?", `Exactly the price you set, quoted in dollars. They choose ETH or USDC at checkout — USDC is the exact amount, and the ETH equivalent is calculated from the live rate with any excess refunded in the same transaction.`],
+                ["When can I withdraw?", "Anytime. Your earnings sit in the registrar contract under your address — only you can withdraw them, and PetID can't touch them. The contract source is verified on Etherscan."],
+                ["Can I change my price later?", "Yes, instantly, as often as you like. Setting the price to zero pauses your listing. Because prices are held in dollars, they don't drift when the ETH rate moves."],
                 ["Is this custodial?", "No. Registrations mint directly to the customer's wallet, and your margin is claimable only by your wallet. The contract is verified on Etherscan — see the link below."],
               ].map(([q, a], i) => (
                 <div key={q} style={{padding:"12px 0",borderTop: i === 0 ? "none" : "1px dashed #E5D3B6"}}>
@@ -192,22 +209,56 @@ export default function PartnerDashboard() {
               <button style={{...btnPrimary,width:"auto",padding:"14px 32px"}} onClick={() => openConnectModal()}>🐾 Become a partner</button>
             </div>
           </>
+        ) : !approved ? (
+          /* Wholesale is an approved list — otherwise anyone could self-register
+             for the reseller price and buy their own names at cost. */
+          <div style={card}>
+            <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"22px",margin:"0 0 8px"}}>
+              Request reseller access
+            </h2>
+            <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 18px",lineHeight:1.6}}>
+              Resellers buy PetID registrations at <b>{usd(wholesaleUsd)}</b> and set their own
+              customer price, keeping everything above it. Access is approved per wallet, so send us
+              the address below and we&apos;ll enable it.
+            </p>
+            <CopyBlock label="Your wallet address" code={address ?? ""} />
+            <a
+              href={`mailto:petid@onchain-id.id?subject=${encodeURIComponent("PetID reseller access")}&body=${encodeURIComponent(`Wallet: ${address ?? ""}\n\nBusiness name:\nType of business (vet / pet shop / groomer):\nCity:\n`)}`}
+              style={{...btnPrimary, textDecoration:"none"}}
+            >
+              Request access by email
+            </a>
+            <p style={{fontSize:"12.5px",color:"#8A6B4E",lineHeight:1.6,marginTop:"16px",marginBottom:0,textAlign:"center"}}>
+              Already approved? Make sure you&apos;re connected with the exact wallet you sent us.
+            </p>
+          </div>
         ) : (
           <>
             {/* Earnings */}
             <div style={{...card, background:"#3D2817", border:"none"}}>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",textTransform:"uppercase",letterSpacing:".1em",color:"rgba(251,245,236,.6)",marginBottom:"10px"}}>Available to withdraw</div>
-              <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:"16px",flexWrap:"wrap"}}>
-                <span style={{fontFamily:"'Fraunces',serif",fontSize:"40px",fontWeight:700,color:"#FFFDF8"}}>
-                  {info.accrued !== undefined ? (Number(info.accrued) / 1e18).toFixed(5) : "…"} <span style={{fontSize:"18px",color:"#E8A962"}}>ETH</span>
-                </span>
+              <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:"16px",flexWrap:"wrap"}}>
+                <div style={{display:"grid",gap:"6px"}}>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"36px",fontWeight:700,color:"#FFFDF8",lineHeight:1}}>
+                    {info.accruedUsdc !== undefined ? (Number(info.accruedUsdc) / 1e6).toFixed(2) : "…"}
+                    <span style={{fontSize:"17px",color:"#E8A962"}}> USDC</span>
+                  </span>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"36px",fontWeight:700,color:"#FFFDF8",lineHeight:1}}>
+                    {info.accruedEth !== undefined ? (Number(info.accruedEth) / 1e18).toFixed(5) : "…"}
+                    <span style={{fontSize:"17px",color:"#E8A962"}}> ETH</span>
+                  </span>
+                </div>
                 <button
                   onClick={() => admin.withdraw()}
-                  disabled={!info.accrued || info.accrued === 0n}
-                  style={{padding:"12px 22px",borderRadius:"12px",fontWeight:700,fontSize:"14px",fontFamily:"inherit",cursor:"pointer",border:"none",background:"#C87A2E",color:"#FFFDF8",opacity: info.accrued && info.accrued > 0n ? 1 : 0.4}}
+                  disabled={!hasEarnings}
+                  style={{padding:"12px 22px",borderRadius:"12px",fontWeight:700,fontSize:"14px",fontFamily:"inherit",cursor:"pointer",border:"none",background:"#C87A2E",color:"#FFFDF8",opacity: hasEarnings ? 1 : 0.4}}
                 >
-                  Withdraw
+                  Withdraw all
                 </button>
+              </div>
+              <div style={{fontSize:"12px",color:"rgba(251,245,236,.55)",marginTop:"14px",lineHeight:1.5}}>
+                Customers choose how to pay, so your margin accrues in whichever asset they used.
+                One withdrawal claims both.
               </div>
             </div>
 
@@ -227,19 +278,22 @@ export default function PartnerDashboard() {
                   <input style={inputStyle} value={bizName} onChange={(e) => setBizName(e.target.value)} placeholder="Happy Paws Clinic" maxLength={48}/>
                 </div>
                 <div>
-                  <label style={{display:"block",fontSize:"13px",fontWeight:600,marginBottom:"6px"}}>Customer price (ETH)</label>
-                  <input type="number" min={baseFeeEth} step="0.001" style={inputStyle} value={priceEth} onChange={(e) => setPriceEth(e.target.value)} placeholder="0.02"/>
+                  <label style={{display:"block",fontSize:"13px",fontWeight:600,marginBottom:"6px"}}>Customer price (USD)</label>
+                  <div style={{position:"relative"}}>
+                    <span style={{position:"absolute",left:"14px",top:"50%",transform:"translateY(-50%)",color:"#8A6B4E",fontSize:"15px",pointerEvents:"none"}}>$</span>
+                    <input type="number" min={wholesaleUsd} step="1" style={{...inputStyle,paddingLeft:"26px"}} value={priceUsd} onChange={(e) => setPriceUsd(e.target.value)} placeholder="24.99"/>
+                  </div>
                 </div>
               </div>
               <div style={{background:"#F5E6D0",borderRadius:"12px",padding:"12px 16px",fontSize:"13px",color:"#5C3E25",marginBottom:"18px",lineHeight:1.6}}>
                 {priceValid
-                  ? <>Protocol fee: <b>{baseFeeEth} ETH</b> · You earn: <b style={{color:"#A35E1B"}}>{marginEth.toFixed(5)} ETH</b> per registration</>
-                  : <>Price must be at least the {baseFeeEth} ETH protocol fee</>}
+                  ? <>You pay PetID <b>{usd(wholesaleUsd)}</b> · You earn <b style={{color:"#A35E1B"}}>{usd(marginUsd)}</b> per registration</>
+                  : <>Price must be at least your {usd(wholesaleUsd)} wholesale cost</>}
               </div>
               <button
                 style={{...btnPrimary, opacity: priceValid && bizName ? 1 : 0.4}}
                 disabled={!priceValid || !bizName}
-                onClick={() => admin.setPartner(BigInt(Math.round(priceNum * 1e6)) * BigInt(1e12), bizName)}
+                onClick={() => admin.setPartnerPrice(priceCents, bizName)}
               >
                 {isActive ? "Update listing" : "🐾 Go live"}
               </button>
@@ -258,7 +312,7 @@ export default function PartnerDashboard() {
             </div>
 
             <p style={{fontSize:"12px",color:"#8A6B4E",lineHeight:1.6,textAlign:"center"}}>
-              Router contract: <a href={`https://etherscan.io/address/${ROUTER_ADDRESS}`} target="_blank" rel="noopener noreferrer" style={{color:"#C87A2E"}}>{ROUTER_ADDRESS ? `${ROUTER_ADDRESS.slice(0,8)}…${ROUTER_ADDRESS.slice(-6)}` : "deploying…"}</a> · Names mint from the same PetID registrar as direct registrations.
+              Registrar contract: <a href={`https://etherscan.io/address/${REGISTRAR_ADDRESS}`} target="_blank" rel="noopener noreferrer" style={{color:"#C87A2E"}}>{REGISTRAR_ADDRESS ? `${REGISTRAR_ADDRESS.slice(0,8)}…${REGISTRAR_ADDRESS.slice(-6)}` : "deploying…"}</a> · Names mint from the same PetID registrar as direct registrations.
             </p>
           </>
         )}

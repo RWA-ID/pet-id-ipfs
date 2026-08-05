@@ -222,7 +222,7 @@ export default function LandingPage() {
             </p>
             <div className="cta-row">
               <Link href="/register/" className="btn btn-primary">
-                Connect Wallet &amp; Mint <span className="btn-price">0.00825 ETH</span>
+                Connect Wallet &amp; Mint <span className="btn-price">$19.99</span>
               </Link>
               <span className="coming-soon">
                 <span className="coming-soon-dot"/>
@@ -300,7 +300,7 @@ export default function LandingPage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M3 7V6a2 2 0 0 1 2-2h11"/><circle cx="16" cy="13" r="1.3" fill="currentColor"/></svg>
                   Connect wallet
                 </div>
-                <div className="flow-meta"><b>0.00825 ETH</b> + gas · instant transfer</div>
+                <div className="flow-meta"><b>$19.99</b> in ETH or USDC + gas · instant transfer</div>
               </div>
               <ol className="flow-steps">
                 <li><div className="flow-num">01</div><div className="flow-body"><h4>Connect &amp; choose a name</h4><p>Pick <code>dogid.eth</code> or <code>catid.eth</code>. Check availability live — no surprises.</p></div></li>
@@ -386,7 +386,7 @@ export default function LandingPage() {
                   <div className="int-num">01</div>
                   <div className="int-body">
                     <h4>Set your price</h4>
-                    <p>Connect your business wallet on the partner dashboard and choose what customers pay. Everything above the <code>0.00825 ETH</code> protocol fee is yours.</p>
+                    <p>Connect your business wallet on the partner dashboard and choose what customers pay. You buy at the <code>$14.99</code> reseller price — everything above it is yours.</p>
                   </div>
                 </li>
                 <li>
@@ -456,10 +456,10 @@ export default function LandingPage() {
             <p className="section-lede">No renewals. No annual fees. The ENS name and IPFS pin are yours for as long as the internet exists.</p>
           </div>
           <div className="price-card">
-            <span className="price-badge">CRYPTO · WALLET-NATIVE</span>
+            <span className="price-badge">PAY IN ETH OR USDC</span>
             <div className="price-label">PetID — Complete</div>
-            <div className="price-row"><span className="price-amount">0.00825</span><span className="price-unit">ETH / one-time</span></div>
-            <div className="price-sub">+ gas · credit card coming soon</div>
+            <div className="price-row"><span className="price-amount">$19.99</span><span className="price-unit">one-time</span></div>
+            <div className="price-sub">+ gas · pay in ETH or USDC · credit card coming soon</div>
             <div className="price-divider"></div>
             <ul className="price-list">
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>ENS subdomain</b> on dogid.eth or catid.eth</span></li>
