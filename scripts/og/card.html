@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--
+  Source for the share cards in public/og/. Rendered at 1200×630 by
+  scripts/og/render.sh — pick a variant with the hash, e.g. card.html#partner.
+  Colours and type are the landing page's own tokens; nothing new is introduced
+  here, and every asset is local so the render never depends on network timing
+  (the webfonts are the one exception, which is what --virtual-time-budget waits
+  for in render.sh).
+-->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box }
+  :root {
+    --cream: #FBF5EC;
+    --cream-2: #F5E6D0;
+    --amber: #C87A2E;
+    --amber-dark: #A35E1B;
+    --amber-soft: #E8A962;
+    --brown: #3D2817;
+    --brown-2: #5C3E25;
+    --brown-3: #8A6B4E;
+    --line: #E5D3B6;
+    --white: #FFFDF8;
+    --f-serif: 'Fraunces', Georgia, serif;
+    --f-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  body {
+    width: 1200px; height: 630px;
+    background: var(--cream);
+    color: var(--brown);
+    font-family: var(--f-sans);
+    display: grid;
+    grid-template-columns: 1fr 468px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Decorative paw field, same trick as the hero */
+  .paws { position: absolute; inset: 0; pointer-events: none; z-index: 0 }
+  .paws svg { position: absolute; color: var(--amber); opacity: .07 }
+
+  /* ── Left: the message ─────────────────────────────────────────────── */
+  .left { position: relative; z-index: 1; padding: 56px 40px 52px 64px; display: flex; flex-direction: column }
+  .brand { display: flex; align-items: center; gap: 11px }
+  .brand-mark {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: var(--amber); color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.09);
+  }
+  .brand-word { font: 700 30px/1 var(--f-serif); letter-spacing: -.02em }
+
+  .eyebrow {
+    margin-top: 42px;
+    display: inline-flex; align-self: flex-start; align-items: center; gap: 9px;
+    padding: 8px 15px 8px 9px; border-radius: 999px;
+    background: var(--white); border: 1px solid var(--line);
+    font: 500 13.5px/1 var(--f-sans); color: var(--brown-2);
+  }
+  .eyebrow i {
+    width: 19px; height: 19px; border-radius: 50%; background: var(--amber);
+    display: flex; align-items: center; justify-content: center; color: var(--white);
+  }
+
+  h1 { margin-top: 24px; font-family: var(--f-serif); font-size: 60px; line-height: 1.0; letter-spacing: -.03em; font-weight: 600 }
+  /* Fraunces italic leans far enough right that the next upright word touches
+     it — a hair of padding is what separates "permanent website" from
+     "permanentwebsite". */
+  h1 em { font-style: italic; font-weight: 500; color: var(--amber-dark); padding-right: .07em }
+  .sub { margin-top: 20px; max-width: 31ch; font-size: 19px; line-height: 1.5; color: var(--brown-2) }
+  .sub code { font: 500 17px/1 var(--f-mono); background: var(--cream-2); padding: 2px 7px; border-radius: 6px; color: var(--brown) }
+
+  .foot { margin-top: auto; display: flex; align-items: center; gap: 9px; flex-wrap: wrap }
+  .chip {
+    padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--white);
+    font-size: 13.5px; color: var(--brown-2);
+  }
+  .chip i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-right: 8px; vertical-align: middle }
+  .url { margin-left: auto; font: 400 14px/1 var(--f-mono); color: var(--brown-3) }
+
+  /* ── Right: the visual ─────────────────────────────────────────────── */
+  .right { position: relative; z-index: 1; padding: 26px 26px 26px 0 }
+  .panel {
+    width: 100%; height: 100%; border-radius: 28px; overflow: hidden;
+    background: radial-gradient(130% 110% at 15% 0%, #4E3520 0%, var(--brown) 58%, #2A1A0E 100%);
+    padding: 34px 32px;
+    display: flex; flex-direction: column; justify-content: center; gap: 16px;
+  }
+
+  /* profile + tag (home, register) */
+  .pcard {
+    background: var(--white); border-radius: 20px; padding: 20px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.28);
+  }
+  .pc-top { display: flex; align-items: center; gap: 14px }
+  .pc-avatar {
+    width: 58px; height: 58px; border-radius: 16px; flex: none;
+    background: linear-gradient(140deg, var(--amber-soft), var(--amber));
+    display: flex; align-items: center; justify-content: center; color: var(--white);
+  }
+  .pc-name { font: 700 25px/1 var(--f-serif); letter-spacing: -.02em }
+  .pc-ens { font: 400 13px/1 var(--f-mono); color: var(--amber-dark); margin-top: 5px }
+  .pc-rows { margin-top: 15px; display: grid; gap: 0 }
+  .pc-row { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px dashed var(--line); font-size: 13.5px; color: var(--brown-2) }
+  .pc-row:first-child { border-top: none }
+  .pc-row b { color: var(--brown); font-weight: 600 }
+
+  .tagcard {
+    background: var(--white); border-radius: 18px; padding: 16px 18px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22);
+  }
+  .qr { width: 74px; height: 74px; flex: none; display: grid; grid-template-columns: repeat(13,1fr); grid-template-rows: repeat(13,1fr); gap: 1px }
+  .qr i { background: var(--brown); border-radius: 1px }
+  .qr i.o { background: transparent }
+  .tag-t { font: 700 16px/1.2 var(--f-serif) }
+  .tag-s { font: 400 12px/1.4 var(--f-mono); color: var(--brown-3); margin-top: 5px }
+
+  /* photo + margin (partner, apply) */
+  .photo-wrap { border-radius: 20px; overflow: hidden; box-shadow: 0 14px 34px rgba(0,0,0,.3); border: 6px solid var(--white) }
+  .photo-wrap img { display: block; width: 100%; height: 236px; object-fit: cover }
+  .earn {
+    background: var(--white); border-radius: 18px; padding: 18px 20px;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22);
+  }
+  .earn-label { font: 400 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .11em; color: var(--brown-3) }
+  .earn-amt { font: 700 34px/1 var(--f-serif); letter-spacing: -.025em; color: var(--amber-dark); margin-top: 9px }
+  .earn-sub { font-size: 13px; color: var(--brown-2); margin-top: 7px }
+
+  .stamp { display: flex; align-items: center; justify-content: center; gap: 9px; font: 400 11px/1 var(--f-mono); letter-spacing: .13em; color: rgba(251,245,236,.5) }
+  .stamp i { width: 6px; height: 6px; border-radius: 50%; background: var(--amber-soft) }
+
+  /* Panel stacks. These must be classes, not inline styles — an inline
+     display:flex would outrank the variant hiding rules below. */
+  .pet-panel, .biz-panel { display: flex; flex-direction: column; gap: 16px }
+
+  /* ── Variants ──────────────────────────────────────────────────────── */
+  body:not(.v-home)     .home-only     { display: none }
+  body:not(.v-register) .register-only { display: none }
+  body:not(.v-partner)  .partner-only  { display: none }
+  body:not(.v-apply)    .apply-only    { display: none }
+  body.v-partner .pet-panel, body.v-apply .pet-panel { display: none }
+  body.v-home .biz-panel, body.v-register .biz-panel { display: none }
+</style>
+</head>
+<body class="v-home">
+
+<div class="paws">
+  <svg width="150" height="150" viewBox="0 0 40 40" fill="currentColor" style="top:-18px;left:24px;transform:rotate(-20deg)"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg>
+  <svg width="96" height="96" viewBox="0 0 40 40" fill="currentColor" style="bottom:26px;left:44%;transform:rotate(16deg);opacity:.05"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg>
+  <svg width="62" height="62" viewBox="0 0 40 40" fill="currentColor" style="top:250px;left:-14px;transform:rotate(30deg);opacity:.06"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg>
+</div>
+
+<div class="left">
+  <div class="brand">
+    <span class="brand-mark">
+      <svg width="23" height="23" viewBox="0 0 40 40" fill="currentColor"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg>
+    </span>
+    <span class="brand-word">PetID</span>
+  </div>
+
+  <div class="eyebrow home-only"><i><svg width="11" height="11" viewBox="0 0 40 40" fill="currentColor"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg></i>Now minting on Ethereum</div>
+  <div class="eyebrow register-only"><i><svg width="11" height="11" viewBox="0 0 40 40" fill="currentColor"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg></i>$19.99 once &middot; ETH or USDC</div>
+  <div class="eyebrow partner-only">FOR VETS, PET SHOPS &amp; GROOMERS</div>
+  <div class="eyebrow apply-only"><i><svg width="11" height="11" viewBox="0 0 40 40" fill="currentColor"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg></i>Now accepting partners</div>
+
+  <h1 class="home-only">Give your pet a<br /><em>permanent</em> website.</h1>
+  <h1 class="register-only">Mint your pet&rsquo;s<br /><em>ENS</em> name.</h1>
+  <h1 class="partner-only">Your counter.<br /><em>Your</em> price.</h1>
+  <h1 class="apply-only">Become a<br />PetID <em>partner</em>.</h1>
+
+  <p class="sub home-only">A readable ENS subdomain, a profile pinned to IPFS, and a printable QR collar tag. One tap finds you if they wander.</p>
+  <p class="sub register-only">Pick a name on <code>dogid.eth</code> or <code>catid.eth</code> &mdash; build the profile and mint it in one transaction.</p>
+  <p class="sub partner-only">Register PetIDs at a wholesale rate, set what your customers pay, and keep every dollar above it.</p>
+  <p class="sub apply-only">Apply in a minute. Wholesale pricing, your own customer price, and margin that accrues on-chain.</p>
+
+  <div class="foot">
+    <span class="chip home-only"><i></i>No renewals</span>
+    <span class="chip home-only">Yours forever</span>
+    <span class="chip home-only">ENS + IPFS</span>
+    <span class="chip register-only"><i></i>Instant on-chain</span>
+    <span class="chip register-only">4 profile designs</span>
+    <span class="chip register-only">QR collar tag</span>
+    <span class="chip partner-only"><i></i>Free to join</span>
+    <span class="chip partner-only">Withdraw anytime</span>
+    <span class="chip partner-only">Non-custodial</span>
+    <span class="chip apply-only"><i></i>Free to join</span>
+    <span class="chip apply-only">No monthly fees</span>
+    <span class="chip apply-only">Approved per wallet</span>
+    <span class="url home-only">petid.eth.link</span>
+    <span class="url register-only">petid.eth.link/register</span>
+    <span class="url partner-only">petid.eth.link/partner</span>
+    <span class="url apply-only">petid.eth.link/apply</span>
+  </div>
+</div>
+
+<div class="right">
+  <div class="panel">
+    <!-- pet-facing routes -->
+    <div class="pet-panel">
+      <div class="pcard">
+        <div class="pc-top">
+          <span class="pc-avatar">
+            <svg width="30" height="30" viewBox="0 0 40 40" fill="currentColor"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg>
+          </span>
+          <span>
+            <span class="pc-name" style="display:block">Max</span>
+            <span class="pc-ens" style="display:block">max.dogid.eth</span>
+          </span>
+        </div>
+        <div class="pc-rows">
+          <div class="pc-row"><span>Breed</span><b>Golden Retriever</b></div>
+          <div class="pc-row"><span>Owner</span><b>alex.eth</b></div>
+          <div class="pc-row"><span>Profile</span><b>IPFS &middot; pinned</b></div>
+        </div>
+      </div>
+      <div class="tagcard">
+        <div class="qr">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i>
+          <i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i>
+          <i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i>
+          <i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i>
+          <i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i>
+          <i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i>
+          <i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i>
+          <i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i>
+        </div>
+        <span>
+          <span class="tag-t" style="display:block">Scan if lost</span>
+          <span class="tag-s" style="display:block">One tap reaches the owner</span>
+        </span>
+      </div>
+      <div class="stamp"><i></i>ENS SUBDOMAIN &middot; IPFS CONTENTHASH</div>
+    </div>
+
+    <!-- business-facing routes -->
+    <div class="biz-panel">
+      <div class="photo-wrap">
+        <img class="partner-only" src="../../public/images/vet.jpg" alt="" />
+        <img class="apply-only" src="../../public/images/petshop.jpg" alt="" />
+      </div>
+      <div class="earn">
+        <div class="earn-label">Your margin &middot; per registration</div>
+        <div class="earn-amt">$10.00</div>
+        <div class="earn-sub">on a $24.99 listing &middot; withdraw anytime</div>
+      </div>
+      <div class="stamp"><i></i>ON-CHAIN ATTRIBUTION &middot; NON-CUSTODIAL</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const variant = (location.hash || '#home').slice(1);
+  document.body.className = 'v-' + variant;
+</script>
+</body>
+</html>

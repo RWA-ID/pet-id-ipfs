@@ -1,4 +1,14 @@
 import Link from "next/link";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "PetID — a permanent website for your pet",
+  description:
+    "Mint a readable ENS subdomain for your dog or cat, pin its profile to IPFS, and print a QR collar tag. $19.99 once — no renewals, no subscriptions.",
+  path: "/",
+  card: "home",
+  imageAlt: "PetID — mint max.dogid.eth, pin the profile to IPFS, print the QR collar tag",
+});
 
 export default function LandingPage() {
   return (
@@ -127,7 +137,12 @@ export default function LandingPage() {
         .shop-line{height:8px;border-radius:4px;background:var(--cream-2);margin-bottom:8px;}
         .shop-line.short{width:62%;margin-bottom:18px;}
         .widget-demo{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;background:var(--amber);color:var(--white);font-weight:600;font-size:14px;box-shadow:0 4px 14px rgba(61,40,23,.22);}
-        .earn-card{position:absolute;right:-14px;bottom:-34px;background:var(--brown);color:var(--cream);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-md);transform:rotate(3deg);min-width:220px;}
+        /* Sits below the mockup's CTA, not on top of it — at bottom:-34px the
+           card clipped the "Create your pet's PetID" button, and -58px still
+           overlapped by ~22px. The 3deg rotation lifts the card's left corner a
+           further ~6px (halfWidth * sin(3deg)), so the clearance has to cover
+           both. */
+        .earn-card{position:absolute;right:-22px;bottom:-94px;background:var(--brown);color:var(--cream);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-md);transform:rotate(3deg);min-width:220px;}
         .earn-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(251,245,236,.6);margin-bottom:6px;}
         .earn-amount{font-family:'Fraunces',serif;font-weight:700;font-size:26px;letter-spacing:-0.02em;color:var(--amber-soft);line-height:1.1;}
         .earn-sub{font-size:11.5px;color:rgba(251,245,236,.65);margin-top:4px;}
@@ -385,8 +400,8 @@ export default function LandingPage() {
                 <li>
                   <div className="int-num">01</div>
                   <div className="int-body">
-                    <h4>Set your price</h4>
-                    <p>Connect your business wallet on the partner dashboard and choose what customers pay. You buy at the <code>$14.99</code> reseller price — everything above it is yours.</p>
+                    <h4>Apply &amp; set your price</h4>
+                    <p>Apply with the wallet that should receive your earnings, then choose what customers pay. You buy at the partner wholesale rate — shown in your dashboard once you&apos;re approved — and everything above it is yours.</p>
                   </div>
                 </li>
                 <li>
@@ -407,7 +422,7 @@ export default function LandingPage() {
               <pre className="int-snippet">{`<script src="`}<span className="tk">https://unpkg.com/@petidentity/widget</span>{`"\n        data-partner="`}<span className="tk">0xYOUR_WALLET</span>{`"></script>`}</pre>
               <div className="cta-row">
                 <Link href="/partner/" className="btn btn-primary">
-                  Open the partner dashboard
+                  Become a partner today!
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 </Link>
                 <a href="https://www.npmjs.com/package/@petidentity/widget" target="_blank" rel="noopener noreferrer" className="btn btn-outline">
@@ -434,9 +449,9 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="earn-card">
-                <div className="earn-label">You keep · per registration</div>
-                <div className="earn-amount">0.01175 ETH</div>
-                <div className="earn-sub">at a 0.02 ETH listing · withdraw anytime</div>
+                <div className="earn-label">Your margin · per registration</div>
+                <div className="earn-amount">$10.00</div>
+                <div className="earn-sub">on a $24.99 listing · withdraw anytime</div>
               </div>
             </div>
           </div>

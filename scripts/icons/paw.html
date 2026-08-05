@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--
+  Source for the app icons. Rendered by scripts/icons/render.sh — the hash picks
+  a geometry, e.g. paw.html#small.
+
+  Two geometries, not one scaled glyph: the five ellipses that read as a paw at
+  512px turn to mush at 16px, so the small variant uses a bigger pad, bigger
+  toes and tighter gaps. Splitting by optical size is normal practice for icons,
+  not a hack.
+
+  Full-bleed amber with no border radius, deliberately:
+    · the brand's ink-brown tile disappears against dark browser chrome, so the
+      accent colour is the safer field;
+    · iOS applies its own mask to apple-touch-icon, and supplying rounded
+      corners ourselves leaves black triangles in them.
+-->
+<style>
+  * { margin: 0; padding: 0 }
+  html, body { width: 100%; height: 100% }
+  body { background: #C87A2E; display: flex; align-items: center; justify-content: center; overflow: hidden }
+  svg { width: 78%; height: 78%; color: #FFFDF8; display: block }
+  /* The small sizes want more of the canvas — at 16px, margin is wasted pixels. */
+  body.small svg, body.tiny svg { width: 88%; height: 88% }
+  .g-small, .g-tiny { display: none }
+  body.small .g-small { display: block }
+  body.tiny  .g-tiny  { display: block }
+  body.small .g-large, body.tiny .g-large { display: none }
+</style>
+</head>
+<body class="large">
+  <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true">
+    <g class="g-large">
+      <ellipse cx="50" cy="64" rx="23"   ry="20"/>
+      <ellipse cx="22" cy="40" rx="10.5" ry="13"/>
+      <ellipse cx="78" cy="40" rx="10.5" ry="13"/>
+      <ellipse cx="37" cy="19" rx="9"    ry="11.5"/>
+      <ellipse cx="63" cy="19" rx="9"    ry="11.5"/>
+    </g>
+    <g class="g-small">
+      <ellipse cx="50" cy="67" rx="27"   ry="23"/>
+      <ellipse cx="18" cy="38" rx="13"   ry="15"/>
+      <ellipse cx="82" cy="38" rx="13"   ry="15"/>
+      <ellipse cx="36" cy="14" rx="11.5" ry="13.5"/>
+      <ellipse cx="64" cy="14" rx="11.5" ry="13.5"/>
+    </g>
+    <!--
+      16px only. Four toes cannot survive here: each toe plus its gap gets ~4px,
+      so the top row antialiases into a single band and the mark reads as a cup.
+      Three larger toes with real gaps keep the paw silhouette legible — dropping
+      a toe is the standard trade at this size.
+    -->
+    <g class="g-tiny">
+      <ellipse cx="50" cy="70" rx="26" ry="22"/>
+      <ellipse cx="15" cy="33" rx="13" ry="14"/>
+      <ellipse cx="50" cy="17" rx="13" ry="14"/>
+      <ellipse cx="85" cy="33" rx="13" ry="14"/>
+    </g>
+  </svg>
+<script>
+  if ((location.hash || '#large').slice(1) === 'small') document.body.className = 'small';
+</script>
+</body>
+</html>

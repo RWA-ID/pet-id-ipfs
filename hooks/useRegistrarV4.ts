@@ -215,17 +215,30 @@ export function useQuote(partner?: `0x${string}`) {
   return { usdCents, weiAmount, usdcAmount, isLoading, error, refetch };
 }
 
-/** Whether the connected wallet is an approved reseller (gets wholesale). */
-export function useIsWholesaler() {
+/**
+ * Approved-reseller status *with* its loading flag.
+ *
+ * The boolean alone is indistinguishable from "not approved" while the read is
+ * in flight, so any UI that branches on it flashes the unapproved state first —
+ * an approved partner sees the application form for a beat before their
+ * dashboard. Branch on `isLoading` to avoid that.
+ */
+export function useWholesalerStatus() {
   const { address } = useAccount();
-  const { data } = useReadContract({
+  const enabled = !!address && !!REGISTRAR_ADDRESS;
+  const { data, isLoading } = useReadContract({
     address: REGISTRAR_ADDRESS,
     abi: REGISTRAR_V4_ABI,
     functionName: "wholesaler",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!REGISTRAR_ADDRESS },
+    query: { enabled },
   });
-  return data === true;
+  return { approved: data === true, isLoading: enabled && isLoading };
+}
+
+/** Whether the connected wallet is an approved reseller (gets wholesale). */
+export function useIsWholesaler() {
+  return useWholesalerStatus().approved;
 }
 
 /** USDC balance of the connected wallet, for an affordability check. */

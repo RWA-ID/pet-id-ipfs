@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "PetID for Pet Shops & Vets — sell pet identities at your price",
   description:
-    "Partner program for pet shops, vets and groomers: set your own price for PetID ENS registrations, embed a one-line widget, and earn the margin on-chain. Withdraw anytime.",
-};
+    "Partner program for vets, pet shops, groomers and shelters: register PetIDs at a wholesale rate, set your own customer price, and keep the margin. It accrues on-chain — withdraw anytime.",
+  path: "/partner/",
+  card: "partner",
+  imageAlt: "PetID partner program — your counter, your price, margin paid on-chain",
+});
 
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {
   return children;

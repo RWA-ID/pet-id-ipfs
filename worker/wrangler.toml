@@ -1,0 +1,28 @@
+# PetID partner applications — see worker/README.md for the deploy walkthrough.
+#
+# Setup:
+#   npx wrangler kv namespace create APPLICATIONS   # paste the id below
+#   npx wrangler secret put ADMIN_TOKEN             # to read applications back
+#   npx wrangler secret put RESEND_API_KEY          # optional, email notifications
+#   npx wrangler deploy
+
+name = "petid-apply"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+
+# Applications are written here before anything else is attempted, so losing
+# email never means losing a lead.
+[[kv_namespaces]]
+binding = "APPLICATIONS"
+id = "f108426794e646bdb3df0925e5e812fd"
+
+[vars]
+# The app is served from more than one host — petid.eth.link, IPFS gateways, and
+# any partner site embedding the iframe. Add hosts here rather than using "*".
+ALLOWED_ORIGINS = "https://petid.eth.link,https://petid.eth.limo,http://localhost:3000"
+NOTIFY_EMAIL = "petid@onchain-id.id"
+# Must be on a domain verified in Resend, otherwise every send 403s. The
+# verified domain is the *subdomain* mail.onchain-id.id — sending as
+# petid@onchain-id.id is rejected even though the parent domain is ours.
+# Recipients (NOTIFY_EMAIL) need no verification.
+NOTIFY_FROM = "PetID <petid@mail.onchain-id.id>"

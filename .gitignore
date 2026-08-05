@@ -12,5 +12,10 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# wrangler local state — miniflare's local KV sqlite and scratch dirs.
+# Note: a stray local KV store is why `wrangler kv key delete` can look like a
+# no-op; the deployed worker's own read is the authoritative check.
+.wrangler/
+
 # misc
 .DS_Store
