@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "deploy": "next build && node scripts/deploy-ipfs.mjs"
+    "build": "next build && node scripts/inject-csp.mjs",
+    "deploy": "npm run build && node scripts/deploy-ipfs.mjs"
   },
   "dependencies": {
     "@reown/appkit": "^1.8.20",
