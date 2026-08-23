@@ -1,8 +1,8 @@
 /**
- * PetID partner applications.
+ * PetID partner applications, and the IPFS upload proxy.
  *
  * The site is a static export served from IPFS, so there is no origin to POST
- * to — this worker is it. Two jobs, in this order of importance:
+ * to — this worker is it. Three jobs, in this order of importance:
  *
  *   1. Never lose an application. Every valid submission is written to KV before
  *      anything else is attempted, so a mail outage costs a notification, not a
@@ -10,6 +10,18 @@
  *   2. Notify. If RESEND_API_KEY is set the application is forwarded by email;
  *      if it isn't, the worker still accepts submissions and they're read back
  *      with GET /applications (bearer-authed).
+ *   3. Pin to IPFS. `POST /upload` proxies a file to Pinata using a key held
+ *      here as a secret.
+ *
+ * On (3): the Pinata key used to be NEXT_PUBLIC_PINATA_JWT, compiled into the
+ * browser bundle — and that bundle is pinned to IPFS, which cannot be
+ * unpublished. Every visitor could read the key, permanently, and it was the
+ * same key several other projects used. Moving it here is the only version of
+ * "rotate that key" that actually ends.
+ *
+ * A proxy with a key behind it is only worth having if it is not an open door,
+ * so /upload is gated: allowed Origin, a size cap, a content-type allowlist,
+ * and a per-IP rate limit. See uploadGate() for what each one is really worth.
  */
 
 export interface Env {
@@ -24,6 +36,13 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** wrangler secret put ADMIN_TOKEN — required to read applications back. */
   ADMIN_TOKEN?: string;
+  /**
+   * wrangler secret put PINATA_JWT — an upload-only key scoped to PetID alone.
+   * Must NEVER be given a NEXT_PUBLIC_ name anywhere: that prefix compiles the
+   * value into the browser bundle, which is how the previous key ended up
+   * permanently readable on IPFS.
+   */
+  PINATA_JWT?: string;
 }
 
 interface Application {
@@ -155,6 +174,157 @@ async function notify(app: Application, env: Env): Promise<string | null> {
   }
 }
 
+// ─── IPFS upload proxy ───────────────────────────────────────────────────────
+
+/** 10 MB. A pet photo off a phone is 2-5 MB; nothing legitimate here is bigger. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/** Only what the mint flow actually produces: one photo, one profile page. */
+const ALLOWED_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "text/html",
+]);
+
+/** Uploads per IP per hour. A mint costs two, so this is ~15 mints an hour. */
+const RATE_LIMIT = 30;
+
+/**
+ * What stands between this endpoint and someone else's storage bill.
+ *
+ * Worth being honest about each one:
+ *
+ *   Origin  — a browser will not let a page forge it, so this stops any other
+ *             website scripting our endpoint. It stops nothing from curl, which
+ *             sends whatever it likes. It is a real control against drive-by
+ *             abuse and no control at all against a determined person.
+ *   Size    — bounds the damage per request whatever else fails.
+ *   Type    — an open pinning endpoint that accepts any bytes is a free CDN for
+ *             whatever someone wants our account associated with.
+ *   Rate    — bounds the damage per hour. KV is not atomic, so a burst can slip
+ *             a few past the limit; that is fine, this is a cost ceiling and not
+ *             a correctness boundary.
+ *
+ * The strictly stronger gate is a wallet signature — every caller here already
+ * has a wallet connected, and it would make uploads attributable. Deliberately
+ * not done yet: it adds a signature prompt to a paid flow, and these four
+ * together already take this from "anyone can spend our quota" to "anyone
+ * determined can, slowly, and we can see it". Revisit if abuse shows up.
+ */
+async function uploadGate(
+  req: Request,
+  env: Env,
+): Promise<{ error: string; status: number } | null> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowed = env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!allowed.includes("*") && !allowed.includes(origin)) {
+    return { error: "origin not allowed", status: 403 };
+  }
+
+  const len = Number(req.headers.get("Content-Length") ?? 0);
+  if (len > MAX_UPLOAD_BYTES) return { error: "file too large", status: 413 };
+
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  const hour = new Date().toISOString().slice(0, 13);
+  const key = `rl:${hour}:${ip}`;
+  const used = Number((await env.APPLICATIONS.get(key)) ?? 0);
+  if (used >= RATE_LIMIT) {
+    return { error: "rate limit reached, try again later", status: 429 };
+  }
+  // TTL just past the hour bucket, so these expire on their own.
+  await env.APPLICATIONS.put(key, String(used + 1), { expirationTtl: 3900 });
+
+  return null;
+}
+
+/**
+ * Pin one file and return its CID.
+ *
+ * Pinata's own error text is never forwarded: it can echo the request, and the
+ * request carries the key. The caller gets a status and nothing else.
+ */
+
+/* Pinata rejects an image whose *metadata* name has no extension with a 400 —
+   not the multipart filename, the pinataMetadata name. Callers legitimately
+   pass display labels like `fido-photo` or `x.eth-buildsite-og`, so the
+   extension is restored here from the content type we already validated.
+   HTML is accepted without one, which is why this only ever bit images and why
+   it survived a client-side fix. */
+const EXT_FOR_TYPE: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/avif": ".avif",
+  "image/svg+xml": ".svg",
+  "text/html": ".html",
+};
+
+function withExtension(name: string, type: string): string {
+  if (/\.[A-Za-z0-9]{2,5}$/.test(name)) return name;
+  return name + (EXT_FOR_TYPE[type] ?? "");
+}
+
+async function handleUpload(req: Request, env: Env, cors: Record<string, string>) {
+  if (!env.PINATA_JWT) return json({ error: "upload not configured" }, 503, cors);
+
+  const denied = await uploadGate(req, env);
+  if (denied) return json({ error: denied.error }, denied.status, cors);
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return json({ error: "expected multipart/form-data" }, 400, cors);
+  }
+
+  /* Duck-typed rather than `instanceof File`: the workers runtime types model a
+     FormData entry as `string | File`, and `File` is not a value the compiler
+     will narrow against here. Checking for the shape we actually use is both
+     type-safe and honest about what we need from it. */
+  const entry = form.get("file");
+  if (!entry || typeof entry === "string" || typeof (entry as Blob).size !== "number") {
+    return json({ error: "missing file field" }, 400, cors);
+  }
+  const file = entry as unknown as { size: number; type: string; name?: string };
+  if (file.size > MAX_UPLOAD_BYTES) return json({ error: "file too large" }, 413, cors);
+
+  // Take the type from the bytes we received, not from a caller-supplied field.
+  const type = (file.type || "").split(";")[0].trim().toLowerCase();
+  if (!ALLOWED_TYPES.has(type)) {
+    return json({ error: `content type not allowed: ${type || "unknown"}` }, 415, cors);
+  }
+
+  const rawName = String(form.get("name") ?? file.name ?? "upload");
+  // The name reaches Pinata's metadata; keep it boring.
+  const name = rawName.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 80) || "upload";
+
+  const out = new FormData();
+    /* Forward the file under ITS OWN name, not the display name.
+     Pinata rejects an image whose filename has no extension with a 400, and
+     `name` here is a display label like `fido-photo` or `x.eth-buildsite-og`.
+     Using it as the multipart filename stripped the extension a second time —
+     after the client had already been fixed — so images failed while HTML,
+     which Pinata accepts without an extension, kept working. The display name
+     belongs in pinataMetadata and nowhere else. */
+  out.append("file", entry as unknown as Blob, withExtension((entry as any).name || name, type));
+  out.append("pinataMetadata", JSON.stringify({ name: withExtension(name, type), keyvalues: { app: "petid" } }));
+  out.append("pinataOptions", JSON.stringify({ cidVersion: 1 }));
+
+  const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.PINATA_JWT}` },
+    body: out,
+  });
+
+  if (!res.ok) {
+    console.error("pinata upload failed", res.status, (await res.text()).slice(0, 300));
+    return json({ error: "upload failed", upstreamStatus: res.status }, 502, cors);
+  }
+
+  const data = (await res.json()) as { IpfsHash?: string };
+  if (!data.IpfsHash) return json({ error: "upload failed" }, 502, cors);
+  return json({ cid: data.IpfsHash }, 200, cors);
+}
+
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
@@ -173,6 +343,14 @@ export default {
         list.keys.map((k) => env.APPLICATIONS.get(k.name, "json")),
       );
       return json({ count: items.length, applications: items });
+    }
+
+    // Before the application handler below: that branch treats *any* POST as a
+    // partner application, so an unrouted /upload would be parsed as JSON and
+    // rejected as a malformed application.
+    if (url.pathname === "/upload") {
+      if (req.method !== "POST") return json({ error: "POST a file" }, 405, cors);
+      return handleUpload(req, env, cors);
     }
 
     if (req.method !== "POST") {

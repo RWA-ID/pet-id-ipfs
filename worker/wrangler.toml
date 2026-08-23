@@ -19,7 +19,14 @@ id = "f108426794e646bdb3df0925e5e812fd"
 [vars]
 # The app is served from more than one host — petid.eth.link, IPFS gateways, and
 # any partner site embedding the iframe. Add hosts here rather than using "*".
-ALLOWED_ORIGINS = "https://petid.eth.link,https://petid.eth.limo,http://localhost:3000"
+# Origins allowed to POST (partner form AND /upload).
+# The gateway hosts are here because a visitor who arrives at
+# ipfs.onchain-id.id/ipfs/<cid>/ sends THAT as their Origin, and would otherwise
+# be refused at the photo-upload step of a paid mint. Subdomain gateways
+# (<cid>.ipfs.dweb.link) still cannot be listed — their origin contains the CID
+# and changes every deploy — so the rate limit, not this list, is the real
+# ceiling on abuse.
+ALLOWED_ORIGINS = "https://petid.eth.link,https://petid.eth.limo,https://ipfs.onchain-id.id,https://gateway.pinata.cloud,https://dweb.link,https://ipfs.io,http://localhost:3000,http://localhost:8899"
 NOTIFY_EMAIL = "petid@onchain-id.id"
 # Must be on a domain verified in Resend, otherwise every send 403s. The
 # verified domain is the *subdomain* mail.onchain-id.id — sending as

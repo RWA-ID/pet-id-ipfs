@@ -942,7 +942,7 @@ export default function RegisterWizard() {
                 {profileCid && (
                   <div style={{background:"#F5E6D0",borderRadius:"14px",padding:"16px",marginBottom:"20px"}}>
                     <div style={{fontSize:"12px",fontFamily:"'JetBrains Mono',monospace",color:"#8A6B4E",marginBottom:"6px"}}>IPFS profile</div>
-                    <a href={`https://gateway.pinata.cloud/ipfs/${profileCid}`} target="_blank" rel="noopener noreferrer"
+                    <a href={ipfsUrl(profileCid)} target="_blank" rel="noopener noreferrer"
                       style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"13px",color:"#A35E1B",wordBreak:"break-all"}}>
                       ipfs://{profileCid}
                     </a>

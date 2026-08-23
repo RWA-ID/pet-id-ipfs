@@ -10,11 +10,11 @@ const root = join(__dirname, "..");
 
 config({ path: join(root, ".env.local") });
 
-const JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
+const JWT = process.env.PINATA_JWT;
 const OUT_DIR = join(root, "out");
 
 if (!JWT) {
-  console.error("Missing NEXT_PUBLIC_PINATA_JWT in .env.local");
+  console.error("Missing PINATA_JWT in .env.local");
   process.exit(1);
 }
 
@@ -80,5 +80,55 @@ const cid = json.IpfsHash;
 
 console.log("\n✓ Uploaded successfully!\n");
 console.log("CID:    ", cid);
-console.log("URL:    ", `https://gateway.pinata.cloud/ipfs/${cid}/`);
+/* The dedicated gateway, not gateway.pinata.cloud: the shared public gateway
+   only serves pins on the caller's own plan and 403s ours, so a link built on
+   it looks correct and resolves to nothing. */
+const configured = process.env.NEXT_PUBLIC_PINATA_GATEWAY || "";
+const GATEWAY = /gateway\.pinata\.cloud/.test(configured) || !configured
+  ? "https://ipfs.onchain-id.id"
+  : configured;
+console.log("URL:    ", `${GATEWAY.replace(/\/+$/, "")}/ipfs/${cid}/`);
+
+/* Warm the gateway before anyone looks at it. A freshly pinned CID 504s on its
+   largest blocks until the gateway has pulled them, and in a Next export those
+   are the JS chunks — so an unwarmed release surfaces as a ChunkLoadError in
+   the thing you just shipped, which reads as a broken build rather than a cold
+   cache. Warming each gateway separately matters: warming one does nothing for
+   another, and visitors arrive through eth.limo. */
+const base = `${GATEWAY.replace(/\/+$/, "")}/ipfs/${cid}`;
+const rel = files.map((f) => relative(OUT_DIR, f).split(/[\\/]/).join("/"));
+console.log(`\nWarming ${rel.length} files…`);
+let warm = 0;
+const cold = [];
+for (let i = 0; i < rel.length; i += 3) {
+  await Promise.all(
+    rel.slice(i, i + 3).map(async (r) => {
+      try {
+        const res = await fetch(`${base}/${r}`);
+        if (res.ok) { warm++; await res.arrayBuffer(); } else cold.push(`${res.status} ${r}`);
+      } catch { cold.push(`ERR ${r}`); }
+    }),
+  );
+  process.stdout.write(`\r  ${Math.min(i + 3, rel.length)}/${rel.length}`);
+}
+console.log(`\r  warmed ${warm}/${rel.length}${cold.length ? ` — ${cold.length} still cold` : ""}`);
+
+/* Retry the stragglers. A cold gateway answers 504 while it pulls the block and
+   200 once it has it, so the first refusal is the pull starting, not a failure. */
+for (let round = 1; round <= 3 && cold.length; round++) {
+  await new Promise((r) => setTimeout(r, 5000));
+  const again = [];
+  for (const entry of cold) {
+    const r = entry.replace(/^\S+ /, "");
+    try {
+      const res = await fetch(`${base}/${r}`);
+      if (res.ok) { warm++; await res.arrayBuffer(); } else again.push(`${res.status} ${r}`);
+    } catch { again.push(`ERR ${r}`); }
+  }
+  console.log(`  retry ${round}: ${cold.length - again.length} warmed, ${again.length} left`);
+  cold.length = 0; cold.push(...again);
+}
+cold.slice(0, 8).forEach((c) => console.log("    " + c));
+if (cold.length) console.log(`  ${cold.length} still cold — re-run in a minute.`);
+else console.log("  ✓ all warm");
 console.log("ENS:     Set this CID as the contenthash on petid.eth\n");
