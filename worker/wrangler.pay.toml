@@ -23,8 +23,8 @@ compatibility_date = "2026-06-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "petid-orders"
-# Placeholder until `wrangler d1 create`; local `wrangler dev` doesn't need a real one.
-database_id = "00000000-0000-0000-0000-000000000000"
+# Created 2026-09-11 on the same account as petid-apply.
+database_id = "33876069-7e4d-43f4-83ed-0e623c1c1f26"
 migrations_dir = "migrations/pay"
 
 # Settles in-flight transactions, sends the next mint or claim, and expires
