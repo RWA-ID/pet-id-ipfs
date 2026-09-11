@@ -1134,6 +1134,19 @@ export default function RegisterWizard() {
                     : " is now registered to your wallet and resolves to the IPFS profile."}
                 </p>
 
+                <a
+                  href={`https://${ens}.link`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{...btnPrimary, textDecoration:"none", marginBottom:"10px"}}
+                >
+                  Visit the website →
+                </a>
+                <p style={{fontSize:"12px",color:"#8A6B4E",margin:"0 0 20px",lineHeight:1.5}}>
+                  A brand-new name can take a few minutes to open the first time, while the gateway issues its
+                  certificate. The QR code below points to the same page.
+                </p>
+
                 {profileCid && (
                   <div style={{background:"#F5E6D0",borderRadius:"14px",padding:"16px",marginBottom:"20px"}}>
                     <div style={{fontSize:"12px",fontFamily:"'JetBrains Mono',monospace",color:"#8A6B4E",marginBottom:"6px"}}>IPFS profile</div>
