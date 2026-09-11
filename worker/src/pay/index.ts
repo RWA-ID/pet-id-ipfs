@@ -42,8 +42,13 @@ type Cors = Record<string, string>;
 
 /** A paid order that fails to mint this many times stops retrying and pages the admin. */
 const MAX_ATTEMPTS = 5;
-/** 0.003 ETH is ~20 card sales at today's gas. */
-const LOW_BALANCE_WEI = 3_000_000_000_000_000n;
+/**
+ * Warn (at most every 6 hours) below 0.001 ETH: ~27 card sales of mint + claim
+ * at 0.09 gwei, enough runway to top up. It was 0.003 ETH, which is what the
+ * wallet was first funded with, so the very first mint would have started the
+ * alerts.
+ */
+const LOW_BALANCE_WEI = 1_000_000_000_000_000n;
 /** Unpaid checkouts a single account may hold open, each reserving a name. */
 const MAX_OPEN_CHECKOUTS = 3;
 
