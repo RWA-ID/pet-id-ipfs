@@ -68,14 +68,25 @@ const COINBASE = ["https://*.coinbase.com"];
 /** The IPFS gateway the app links and previews pins through. */
 const PINATA_GATEWAY = originOf("NEXT_PUBLIC_PINATA_GATEWAY", "https://gateway.pinata.cloud");
 
-/** Alchemy for chain reads/writes, Pinata for the profile upload, the worker for applications. */
+/** Alchemy for chain reads/writes, Pinata for the profile upload, the workers for applications and card orders. */
 const APP_BACKENDS = [
   ...originOf("NEXT_PUBLIC_RPC_URL_MAINNET", "https://eth-mainnet.g.alchemy.com"),
   ...originOf("NEXT_PUBLIC_RPC_URL_SEPOLIA", "https://eth-sepolia.g.alchemy.com"),
   "https://api.pinata.cloud",
   ...PINATA_GATEWAY,
   ...originOf("NEXT_PUBLIC_PARTNER_APPLY_URL", ""),
+  ...originOf("NEXT_PUBLIC_PAY_API", ""),
 ];
+
+/**
+ * Sign in with Google (components/GoogleSignInButton.tsx), for card orders.
+ * These are the four entries Google documents for GIS under a CSP — a script,
+ * its stylesheet, the button's iframe, and the calls it makes — and each is
+ * path-scoped to /gsi/ rather than opening up all of accounts.google.com.
+ * Stripe Checkout needs nothing here: it's a full-page redirect, which a CSP
+ * doesn't govern.
+ */
+const GOOGLE_GSI = "https://accounts.google.com/gsi/";
 
 const POLICY = [
   ["default-src", "'self'"],
@@ -91,11 +102,11 @@ const POLICY = [
   // directive still buys is the origin restriction — an injected
   // <script src="https://evil/…"> is blocked, as is any attempt to exfiltrate
   // to an origin not named below, which is the half that carries data out.
-  ["script-src", "'self' 'unsafe-inline' 'wasm-unsafe-eval'"],
+  ["script-src", `'self' 'unsafe-inline' 'wasm-unsafe-eval' ${GOOGLE_GSI}client`],
 
   // AppKit injects its theme into shadow DOM at runtime, page.tsx carries an
   // inline <style>, and that style block @imports Google Fonts.
-  ["style-src", "'self' 'unsafe-inline' https://fonts.googleapis.com"],
+  ["style-src", `'self' 'unsafe-inline' https://fonts.googleapis.com ${GOOGLE_GSI}style`],
   // fonts.reown.com is AppKit's own typeface (KHTeka), pulled by the modal's
   // stylesheet at open time. Blocking it does not break the connect flow, which
   // is exactly why it is easy to ship by accident: the modal silently falls back
@@ -109,10 +120,10 @@ const POLICY = [
   ["img-src", ["'self'", "data:", "blob:", ...WALLETCONNECT,
     ...PINATA_GATEWAY, "https://images.unsplash.com"].join(" ")],
 
-  ["connect-src", ["'self'", ...APP_BACKENDS, ...WALLETCONNECT, ...COINBASE,
+  ["connect-src", ["'self'", ...APP_BACKENDS, ...WALLETCONNECT, ...COINBASE, GOOGLE_GSI,
     "wss://*.walletconnect.com", "wss://*.walletconnect.org"].join(" ")],
 
-  ["frame-src", ["'self'", ...WALLETCONNECT, "https://keys.coinbase.com"].join(" ")],
+  ["frame-src", ["'self'", ...WALLETCONNECT, "https://keys.coinbase.com", GOOGLE_GSI].join(" ")],
   ["worker-src", "'self' blob:"],
   ["manifest-src", "'self'"],
 ].map(([k, v]) => `${k} ${v}`).join("; ");

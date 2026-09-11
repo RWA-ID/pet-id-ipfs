@@ -11,6 +11,10 @@ next-env.d.ts
 .env
 .env.*
 !.env.example
+# wrangler dev's local secrets file (the pay worker's e2e test writes one). Not
+# matched by .env.* above, which is how it would have slipped into a commit.
+.dev.vars
+.dev.vars.*
 
 # wrangler local state — miniflare's local KV sqlite and scratch dirs.
 # Note: a stray local KV store is why `wrangler kv key delete` can look like a

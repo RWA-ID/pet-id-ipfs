@@ -23,6 +23,9 @@ import { uploadFileToPinata, uploadHtmlToPinata, ipfsUrl } from "@/lib/pinata-br
 import { cidToContenthash } from "@/lib/contenthash";
 import { generateProfileHtml } from "@/lib/profile-html";
 import type { Template } from "@/types/templates";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { usePaySession } from "@/hooks/usePaySession";
+import { CARD_PRICE_CENTS, cardPaymentsEnabled, payApi, type PayOrder } from "@/lib/pay";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 type Namespace = "dogid.eth" | "catid.eth";
@@ -33,6 +36,7 @@ type MintPhase =
   | "approving-usdc"
   | "waiting-wallet"
   | "confirming"
+  | "redirecting"
   | "done"
   | "error";
 
@@ -137,6 +141,16 @@ export default function RegisterWizard() {
   const [txHash, setTxHash] = useState("");
   const qrRef = useRef<HTMLDivElement>(null);
 
+  // ── how this buyer pays ──
+  // "wallet": ETH/USDC, the name goes straight to the wallet.
+  // "card":   Google sign-in + Stripe, the name is held in custody until claimed.
+  const [mode, setMode] = useState<"wallet" | "card" | null>(null);
+  const { session, signIn, signOut } = usePaySession();
+  /** Set when this page load is the return from Stripe Checkout. */
+  const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
+  const [cardOrder, setCardOrder] = useState<PayOrder | null>(null);
+  const [returnNotice, setReturnNotice] = useState<"" | "canceled">("");
+
   const { address, isConnected } = useAccount();
   const { open: openConnectModal } = useAppKit();
   const { disconnect } = useDisconnect();
@@ -151,6 +165,8 @@ export default function RegisterWizard() {
   const partnerActive =
     !!partnerAddr && !!partnerInfo.priceUsdCents && partnerInfo.priceUsdCents > 0n;
   const partnerArg = partnerActive ? partnerAddr : undefined;
+  // Partner storefronts set their own price on-chain, which card checkout doesn't honour.
+  const cardAvailable = cardPaymentsEnabled && !partnerAddr;
 
   // ── payment ──
   const [payWith, setPayWith] = useState<PayWith>("eth");
@@ -184,7 +200,8 @@ export default function RegisterWizard() {
     abi: REGISTRAR_V4_ABI,
     functionName: "isAvailable",
     args: [namehash(namespace) as `0x${string}`, debouncedSub],
-    query: { enabled: debouncedSub.length >= 3 && isConnected },
+    // A read needs no wallet, and card buyers never connect one.
+    query: { enabled: debouncedSub.length >= 3 },
   });
 
   const availability = debouncedSub.length >= 3
@@ -206,10 +223,66 @@ export default function RegisterWizard() {
     }
   }, [isPending, isConfirming, isSuccess, wagmiError, hash, mintPhase, usdcStep]);
 
-  // auto-advance to step 1 when wallet connects
+  // Auto-advance past step 0 once the chosen way to pay is ready. An already
+  // connected wallet counts as choosing the wallet — except on a return from
+  // card checkout, which has its own screen.
   useEffect(() => {
-    if (isConnected && step === 0) setStep(1);
-  }, [isConnected, step]);
+    if (step !== 0 || returnOrderId || returnNotice) return;
+    if (isConnected && mode !== "card") {
+      setMode("wallet");
+      setStep(1);
+    } else if (mode === "card" && session) {
+      setStep(1);
+    }
+  }, [isConnected, step, mode, session, returnOrderId, returnNotice]);
+
+  // Back from Stripe Checkout: ?order=<id>&checkout=success|canceled
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get("order");
+    const outcome = q.get("checkout");
+    if (!id || !outcome) return;
+    setMode("card");
+    if (outcome === "success") setReturnOrderId(id);
+    else setReturnNotice("canceled");
+  }, []);
+
+  // Follow a paid order until the worker has minted it. Needs the session, so a
+  // buyer returning signed-out sees the sign-in button first, then this.
+  useEffect(() => {
+    if (!returnOrderId || !session) return;
+    let stopped = false;
+    setStep(5);
+    const tick = async () => {
+      try {
+        const { order } = await payApi.order(session.token, returnOrderId);
+        if (stopped) return;
+        setCardOrder(order);
+        setNamespace(order.parent);
+        setSubdomain(order.label);
+        if (["minted", "claim_requested", "claiming", "claimed"].includes(order.status)) {
+          setMintPhase("done");
+          return;
+        }
+        if (["refunded", "revoke_needed", "revoked", "expired", "canceled"].includes(order.status)) {
+          setMintError(order.status === "refunded"
+            ? "Someone registered this name before your payment settled, so your card has been refunded in full."
+            : "This order didn't complete. Check your account page for details.");
+          setMintPhase("error");
+          return;
+        }
+        setMintPhase("confirming");
+      } catch (e) {
+        if (stopped) return;
+        setMintError(e instanceof Error ? e.message : String(e));
+        setMintPhase("error");
+        return;
+      }
+      setTimeout(() => { if (!stopped) tick(); }, 4000);
+    };
+    tick();
+    return () => { stopped = true; };
+  }, [returnOrderId, session]);
 
   // render QR code on success screen
   useEffect(() => {
@@ -275,12 +348,12 @@ export default function RegisterWizard() {
   // Uploads are cached (uploadedPhotoUrl / profileCid), so if the on-chain tx
   // fails or is rejected, retrying skips straight to the wallet confirmation.
   const handleMint = async () => {
-    if (!priced) {
+    if (mode !== "card" && !priced) {
       setMintError("Price not loaded yet — please wait a moment and try again.");
       setMintPhase("error");
       return;
     }
-    if (usdcShort) {
+    if (mode !== "card" && usdcShort) {
       setMintError(
         `Not enough USDC — this costs ${formatUsdc(quote.usdcAmount)} and your wallet holds ${formatUsdc(usdcBalance)}.`,
       );
@@ -323,7 +396,7 @@ export default function RegisterWizard() {
           ownerEmail: form.ownerEmail || undefined,
           ownerWhatsapp: form.ownerWhatsapp || undefined,
           ownerTelegram: form.ownerTelegram || undefined,
-          ownerWallet: address,
+          ownerWallet: mode === "card" ? undefined : address,
           templateId: template?.id,
         });
         pageCid = await uploadHtmlToPinata(html, `${subdomain}-petid.html`);
@@ -331,6 +404,19 @@ export default function RegisterWizard() {
       }
 
       const contenthash = cidToContenthash(pageCid);
+      if (mode === "card") {
+        if (!session) throw new Error("Your sign-in expired. Go back to the start and sign in with Google again.");
+        setMintPhase("redirecting");
+        const { url } = await payApi.checkout(session.token, {
+          parent: namespace,
+          label: subdomain,
+          contenthash,
+          // Where Stripe sends the buyer back. The worker only accepts our own hosts.
+          returnUrl: window.location.href,
+        });
+        window.location.assign(url);
+        return;
+      }
       setMintPhase("waiting-wallet");
       await register(subdomain, contenthash);
     } catch (err: unknown) {
@@ -372,7 +458,7 @@ export default function RegisterWizard() {
     color: step >= n ? "#FFFDF8" : "#8A6B4E",
   } as React.CSSProperties);
 
-  const STEP_LABELS = ["Wallet", "Name", "Template", "Details", "Review", "Mint"];
+  const STEP_LABELS = [mode === "card" ? "Sign in" : "Wallet", "Name", "Template", "Details", "Review", mode === "card" ? "Pay" : "Mint"];
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -401,7 +487,17 @@ export default function RegisterWizard() {
             </span>
             PetID
           </Link>
-          {isConnected && (
+          {mode === "card" && session && (
+            <div style={{display:"flex",alignItems:"center",gap:"12px",minWidth:0}}>
+              <span style={{fontSize:"12px",color:"#8A6B4E",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {session.user.email}
+              </span>
+              <button onClick={() => { signOut(); setMode(null); setStep(0); }} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:"13px",color:"#8A6B4E",textDecoration:"underline"}}>
+                Sign out
+              </button>
+            </div>
+          )}
+          {mode !== "card" && isConnected && (
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",color:"#8A6B4E",background:"#F5E6D0",padding:"5px 10px",borderRadius:"999px"}}>
                 {address?.slice(0,6)}…{address?.slice(-4)}
@@ -453,7 +549,9 @@ export default function RegisterWizard() {
                 Create a PetID
               </h1>
               <p style={{color:"#5C3E25",fontSize:"16px",lineHeight:1.6,margin:0}}>
-                Connect your wallet to mint a permanent ENS identity for your dog or cat. The subdomain goes directly to your wallet — no middlemen.
+                {mode === "card"
+                  ? "Pay by card and we register a permanent ENS identity for your dog or cat, then keep it safe for you until you're ready to send it to a wallet."
+                  : "Connect your wallet to mint a permanent ENS identity for your dog or cat. The subdomain goes directly to your wallet — no middlemen."}
               </p>
             </div>
 
@@ -461,19 +559,58 @@ export default function RegisterWizard() {
               <strong style={{color:"#3D2817"}}>What happens when you mint:</strong>
               <ul style={{margin:"10px 0 0",paddingLeft:"18px",display:"grid",gap:"6px"}}>
                 <li>Your pet photo + profile is uploaded to IPFS</li>
-                <li>The ENS subdomain is registered to your wallet on-chain</li>
+                <li>{mode === "card"
+                  ? "The ENS subdomain is registered on-chain and held for you until you claim it"
+                  : "The ENS subdomain is registered to your wallet on-chain"}</li>
                 <li>The contenthash is set — resolves instantly at <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px"}}>name.dogid.eth.link</span></li>
               </ul>
             </div>
 
-            <button style={btnPrimary} onClick={() => openConnectModal()}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M3 7V6a2 2 0 0 1 2-2h11"/><circle cx="16" cy="13" r="1.3" fill="currentColor"/></svg>
-              Connect Wallet
-            </button>
+            {returnNotice === "canceled" && (
+              <div role="status" style={{background:"#FEF3E5",border:"1px solid #E8A962",borderRadius:"12px",padding:"12px 14px",marginBottom:"20px",fontSize:"14px",color:"#A35E1B",lineHeight:1.5}}>
+                Checkout was canceled and your card wasn&apos;t charged. Start again whenever you&apos;re ready.
+              </div>
+            )}
 
-            <p style={{textAlign:"center",marginTop:"16px",fontSize:"12px",color:"#8A6B4E"}}>
-              Supports MetaMask, WalletConnect, Coinbase Wallet &amp; more
-            </p>
+            {mode !== "card" ? (
+              <>
+                <button style={btnPrimary} onClick={() => { setMode("wallet"); setReturnNotice(""); openConnectModal(); }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M3 7V6a2 2 0 0 1 2-2h11"/><circle cx="16" cy="13" r="1.3" fill="currentColor"/></svg>
+                  Connect Wallet
+                </button>
+
+                <p style={{textAlign:"center",marginTop:"16px",fontSize:"12px",color:"#8A6B4E"}}>
+                  Pay in ETH or USDC · MetaMask, WalletConnect, Coinbase Wallet &amp; more
+                </p>
+
+                {cardAvailable && (
+                  <>
+                    <div style={{display:"flex",alignItems:"center",gap:"12px",margin:"22px 0",fontSize:"12px",color:"#8A6B4E"}}>
+                      <span style={{flex:1,height:"1px",background:"#E5D3B6"}}/>
+                      No crypto wallet?
+                      <span style={{flex:1,height:"1px",background:"#E5D3B6"}}/>
+                    </div>
+                    <button style={{...btnOutline,width:"100%"}} onClick={() => { setMode("card"); setReturnNotice(""); }}>
+                      💳 Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <p style={{textAlign:"center",fontSize:"14px",color:"#5C3E25",margin:"0 0 18px",lineHeight:1.6}}>
+                  {returnOrderId
+                    ? "Sign in with the Google account you used at checkout to follow your order."
+                    : "Sign in with Google. We use it to send your receipt and to keep your name safe until you claim it."}
+                </p>
+                <GoogleSignInButton onCredential={async (credential) => { await signIn(credential); setReturnNotice(""); }} />
+                {!returnOrderId && (
+                  <button onClick={() => setMode(null)} style={{display:"block",margin:"20px auto 0",background:"transparent",border:"none",cursor:"pointer",fontSize:"13px",color:"#8A6B4E",textDecoration:"underline",fontFamily:"inherit"}}>
+                    ← I have a crypto wallet
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -718,7 +855,9 @@ export default function RegisterWizard() {
                   WhatsApp and Telegram appear as one-tap contact buttons on your pet&apos;s page — the fastest way for a finder to reach you.
                 </p>
                 <div style={{background:"#F5E6D0",borderRadius:"10px",padding:"10px 14px",fontSize:"13px",color:"#5C3E25",fontFamily:"'JetBrains Mono',monospace"}}>
-                  Wallet: {address?.slice(0,8)}…{address?.slice(-6)}
+                  {mode === "card"
+                    ? `Signed in: ${session?.user.email ?? ""}`
+                    : <>Wallet: {address?.slice(0,8)}…{address?.slice(-6)}</>}
                 </div>
               </div>
             </div>
@@ -742,7 +881,9 @@ export default function RegisterWizard() {
             <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"28px",letterSpacing:"-0.02em",margin:"0 0 6px"}}>
               Review &amp; mint
             </h2>
-            <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px"}}>Everything looks good? One transaction mints and sets the contenthash.</p>
+            <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px"}}>{mode === "card"
+              ? "Everything looks good? You'll pay on Stripe's secure checkout page next."
+              : "Everything looks good? One transaction mints and sets the contenthash."}</p>
 
             <div style={{background:"#FEF3E5",border:"1px solid #E8A962",borderRadius:"14px",padding:"16px 20px",marginBottom:"20px"}}>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"18px",fontWeight:700,color:"#A35E1B"}}>{ens}</div>
@@ -768,6 +909,19 @@ export default function RegisterWizard() {
               </div>
             ))}
 
+            {mode === "card" ? (
+              <div style={{marginTop:"18px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"12px 0 4px",fontSize:"16px",fontWeight:700,color:"#3D2817",borderTop:"2px solid #E5D3B6"}}>
+                  <span>Total · card</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#A35E1B",fontSize:"20px"}}>
+                    {formatUsd(BigInt(CARD_PRICE_CENTS))}
+                  </span>
+                </div>
+                <div style={{fontSize:"12px",color:"#8A6B4E",textAlign:"right",paddingBottom:"8px"}}>
+                  No gas, no crypto needed
+                </div>
+              </div>
+            ) : (<>
             {/* ── payment method ── */}
             <div style={{marginTop:"18px",marginBottom:"4px"}}>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A6B4E",marginBottom:"10px",fontWeight:500}}>
@@ -837,18 +991,26 @@ export default function RegisterWizard() {
               </div>
             )}
 
+            </>)}
+
             <div style={{background:"#F5E6D0",borderRadius:"12px",padding:"14px",fontSize:"13px",color:"#5C3E25",lineHeight:1.5,marginTop:"16px",marginBottom:"24px"}}>
-              <strong>What happens next:</strong> Your photo is uploaded to IPFS, the profile HTML is generated and pinned, then a single on-chain transaction registers <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> to your wallet and sets the contenthash.
+              <strong>What happens next:</strong>{" "}
+              {mode === "card" ? (
+                <>Your photo and profile are pinned to IPFS, then you pay on Stripe&apos;s secure checkout page. We register <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> right after and hold it for you. Send it to a wallet any time from your account.</>
+              ) : (
+                <>Your photo is uploaded to IPFS, the profile HTML is generated and pinned, then a single on-chain transaction registers <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> to your wallet and sets the contenthash.</>
+              )}
             </div>
 
             <div style={{display:"flex",gap:"12px"}}>
               <button style={btnOutline} onClick={() => setStep(3)}>← Back</button>
               <button
-                style={{...btnPrimary, opacity: priced && !usdcShort ? 1 : 0.4}}
-                disabled={!priced || usdcShort}
+                style={{...btnPrimary, opacity: mode === "card" || (priced && !usdcShort) ? 1 : 0.4}}
+                disabled={mode !== "card" && (!priced || usdcShort)}
                 onClick={() => { setStep(5); handleMint(); }}
               >
-                {!priced ? "Loading price…"
+                {mode === "card" ? `🐾 Continue to payment · ${formatUsd(BigInt(CARD_PRICE_CENTS))}`
+                  : !priced ? "Loading price…"
                   : usdcShort ? "Not enough USDC"
                   : `🐾 Mint PetID · ${formatUsd(quote.usdCents)}`}
               </button>
@@ -862,7 +1024,10 @@ export default function RegisterWizard() {
             {mintPhase !== "done" ? (
               <>
                 <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"28px",letterSpacing:"-0.02em",margin:"0 0 6px"}}>
-                  {mintPhase === "error" ? "Something went wrong" : "Minting your PetID…"}
+                  {mintPhase === "error" ? "Something went wrong"
+                    : returnOrderId ? "Registering your PetID…"
+                    : mode === "card" ? "Preparing checkout…"
+                    : "Minting your PetID…"}
                 </h2>
                 <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 28px"}}>
                   {mintPhase === "approving-usdc"
@@ -870,12 +1035,23 @@ export default function RegisterWizard() {
                         ? "Sign the USDC approval in your wallet — this is a signature, not a transaction, so it's free."
                         : "Approve the USDC spend in your wallet. The mint follows right after.") :
                    mintPhase === "waiting-wallet" ? "Check your wallet and confirm the transaction." :
-                   mintPhase === "confirming" ? "Transaction submitted — waiting for confirmation." :
+                   mintPhase === "redirecting" ? "Opening Stripe's secure checkout…" :
+                   mintPhase === "confirming" ? (returnOrderId
+                     ? "Payment received. We're registering the name on-chain, which usually takes under a minute."
+                     : "Transaction submitted — waiting for confirmation.") :
                    mintPhase === "error" ? "You can go back and try again." :
                    "This takes a few moments, don't close the tab."}
                 </p>
 
-                {[
+                {(returnOrderId ? [
+                  { phase: "paid", label: "Payment received", done: true },
+                  // Never done while visible: once minted, the success screen replaces this list.
+                  { phase: "confirming", label: "Registering on-chain", done: false },
+                ] : mode === "card" ? [
+                  { phase: "uploading-photo", label: "Uploading photo to IPFS", done: ["uploading-profile","redirecting","done"].includes(mintPhase) },
+                  { phase: "uploading-profile", label: "Generating & uploading profile page", done: ["redirecting","done"].includes(mintPhase) },
+                  { phase: "redirecting", label: "Opening secure checkout", done: false },
+                ] : [
                   { phase: "uploading-photo", label: "Uploading photo to IPFS", done: ["uploading-profile","approving-usdc","waiting-wallet","confirming","done","error"].includes(mintPhase) },
                   { phase: "uploading-profile", label: "Generating & uploading profile page", done: ["approving-usdc","waiting-wallet","confirming","done","error"].includes(mintPhase) },
                   ...(payWith === "usdc" ? [{
@@ -885,7 +1061,7 @@ export default function RegisterWizard() {
                   }] : []),
                   { phase: "waiting-wallet", label: "Waiting for wallet confirmation", done: ["confirming","done"].includes(mintPhase) },
                   { phase: "confirming", label: "Confirming on-chain", done: (["done"] as MintPhase[]).includes(mintPhase) },
-                ].map(({ phase, label, done }) => {
+                ]).map(({ phase, label, done }) => {
                   const active = mintPhase === phase;
                   const color = done ? "#2D7D46" : active ? "#C87A2E" : "#8A6B4E";
                   return (
@@ -917,13 +1093,18 @@ export default function RegisterWizard() {
                   </div>
                 )}
 
-                {mintPhase === "error" && (
+                {mintPhase === "error" && returnOrderId && (
+                  <div style={{marginTop:"24px"}}>
+                    <Link href="/account/" style={{...btnPrimary, textDecoration:"none"}}>Go to your account</Link>
+                  </div>
+                )}
+                {mintPhase === "error" && !returnOrderId && (
                   <div style={{display:"flex",gap:"12px",marginTop:"24px"}}>
                     <button style={btnOutline} onClick={() => { setMintPhase("idle"); setStep(4); }}>
                       ← Back to review
                     </button>
                     <button style={btnPrimary} onClick={() => handleMint()}>
-                      ↻ Retry transaction
+                      {mode === "card" ? "↻ Try again" : "↻ Retry transaction"}
                     </button>
                   </div>
                 )}
@@ -933,10 +1114,13 @@ export default function RegisterWizard() {
               <div style={{textAlign:"center"}}>
                 <div style={{fontSize:"64px",marginBottom:"16px"}}>🐾</div>
                 <h2 style={{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:"32px",letterSpacing:"-0.02em",margin:"0 0 10px",color:"#3D2817"}}>
-                  {form.name} is on-chain!
+                  {form.name || subdomain} is on-chain!
                 </h2>
                 <p style={{color:"#5C3E25",fontSize:"16px",margin:"0 0 28px",lineHeight:1.6}}>
-                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"14px",color:"#A35E1B"}}>{ens}</span> is now registered to your wallet and resolves to the IPFS profile.
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"14px",color:"#A35E1B"}}>{ens}</span>
+                  {cardOrder
+                    ? " is registered and its profile is live. We're holding the name safely for you until you send it to a wallet."
+                    : " is now registered to your wallet and resolves to the IPFS profile."}
                 </p>
 
                 {profileCid && (
@@ -958,6 +1142,12 @@ export default function RegisterWizard() {
                   </div>
                 )}
 
+                {cardOrder && (
+                  <Link href="/account/" style={{...btnOutline, width:"100%", textDecoration:"none", marginBottom:"20px"}}>
+                    Send it to my wallet →
+                  </Link>
+                )}
+
                 <div style={{background:"#FFFDF8",border:"1px solid #E5D3B6",borderRadius:"16px",padding:"24px",marginBottom:"24px"}}>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",textTransform:"uppercase",letterSpacing:".1em",color:"#8A6B4E",marginBottom:"14px"}}>Collar QR Code</div>
                   <div style={{display:"inline-block",background:"#fff",borderRadius:"10px",padding:"10px",border:"1px solid #E5D3B6",marginBottom:"14px"}}>
@@ -971,7 +1161,7 @@ export default function RegisterWizard() {
                     onClick={() => {
                       const canvas = qrRef.current?.querySelector("canvas");
                       if (!canvas) return;
-                      const filename = `${form.name.replace(/\s+/g, "-").toLowerCase()}-petid-qr.png`;
+                      const filename = `${(form.name || subdomain).replace(/\s+/g, "-").toLowerCase()}-petid-qr.png`;
                       const saveBlob = (blob: Blob) => {
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement("a");

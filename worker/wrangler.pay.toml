@@ -1,0 +1,48 @@
+# PetID card payments — Google sign-in, Stripe Checkout, custodial minting on
+# PetIDRegistrarV5, and claims. See src/pay/index.ts.
+#
+# A separate worker from petid-apply (wrangler.toml) on purpose: that one
+# carries the live site's photo uploads, and a payments deploy must never be
+# able to break a crypto mint. It also keeps the fulfiller key out of a worker
+# that accepts file uploads from the internet.
+#
+# Setup, from worker/:
+#   npx wrangler d1 create petid-orders                  # paste database_id below
+#   npx wrangler d1 migrations apply petid-orders --remote -c wrangler.pay.toml
+#   npx wrangler secret bulk <file.json> -c wrangler.pay.toml
+#   npx wrangler deploy -c wrangler.pay.toml
+#
+# Secrets (never put these under [vars] — a var with the same name shadows the
+# secret): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SESSION_SECRET,
+# FULFILLER_PRIVATE_KEY, RPC_URL, RESEND_API_KEY, ADMIN_TOKEN.
+
+name = "petid-pay"
+main = "src/pay/index.ts"
+compatibility_date = "2026-06-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "petid-orders"
+# Placeholder until `wrangler d1 create`; local `wrangler dev` doesn't need a real one.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations/pay"
+
+# Settles in-flight transactions, sends the next mint or claim, and expires
+# abandoned checkouts. Webhooks and claim requests also kick the queue directly,
+# so this is the backstop, not the fast path.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+GOOGLE_CLIENT_ID = "752188204705-qafp666708ta62hl1lmlb22g2oo0sl8d.apps.googleusercontent.com"
+REGISTRAR_ADDRESS = "0xe189666820863F6e7c578c81eFd7ED9eAb24d1bb"
+# Hosts the app is served from. Checkout return URLs must be on one of these,
+# or the endpoint would be an open redirect.
+ALLOWED_ORIGINS = "https://petid.eth.link,https://petid.eth.limo,https://ipfs.onchain-id.id,http://localhost:3000"
+PRICE_CENTS = "1999"
+# Mints wait (the order stays paid, the cron retries) while gas is above this.
+MAX_GAS_GWEI = "3"
+SITE_URL = "https://petid.eth.limo"
+NOTIFY_EMAIL = "petid@onchain-id.id"
+# Must be on the verified Resend domain mail.onchain-id.id — see wrangler.toml.
+NOTIFY_FROM = "PetID <petid@mail.onchain-id.id>"
