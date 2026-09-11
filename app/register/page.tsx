@@ -149,6 +149,8 @@ export default function RegisterWizard() {
   /** Set when this page load is the return from Stripe Checkout. */
   const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
   const [cardOrder, setCardOrder] = useState<PayOrder | null>(null);
+  /** Registering usually takes under a minute; past that, reassure rather than spin. */
+  const [slowRegistration, setSlowRegistration] = useState(false);
   const [returnNotice, setReturnNotice] = useState<"" | "canceled">("");
 
   const { address, isConnected } = useAccount();
@@ -281,7 +283,8 @@ export default function RegisterWizard() {
       setTimeout(() => { if (!stopped) tick(); }, 4000);
     };
     tick();
-    return () => { stopped = true; };
+    const slow = setTimeout(() => setSlowRegistration(true), 3 * 60_000);
+    return () => { stopped = true; clearTimeout(slow); };
   }, [returnOrderId, session]);
 
   // render QR code on success screen
@@ -1075,6 +1078,14 @@ export default function RegisterWizard() {
                     </div>
                   );
                 })}
+
+                {slowRegistration && returnOrderId && mintPhase !== "error" && (
+                  <div role="status" style={{background:"#FEF3E5",border:"1px solid #E8A962",borderRadius:"12px",padding:"14px",marginTop:"20px",fontSize:"13px",color:"#A35E1B",lineHeight:1.6}}>
+                    This is taking longer than usual. Your payment is safe and the name is reserved for you — you can
+                    close this page. We&apos;ll email you when it&apos;s registered, and it will be waiting on your{" "}
+                    <Link href="/account/" style={{color:"#A35E1B",fontWeight:700}}>account page</Link>.
+                  </div>
+                )}
 
                 {mintPhase === "error" && (
                   <div style={{background:"#FDF0F0",border:"1px solid #E5C0C0",borderRadius:"12px",padding:"14px",marginTop:"20px",fontSize:"13px",color:"#C0392B",lineHeight:1.5}}>

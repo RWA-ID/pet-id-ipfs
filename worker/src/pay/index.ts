@@ -397,8 +397,25 @@ async function sendMint(env: Env, c: Chain, o: OrderRow): Promise<boolean> {
     }
     return true;
   } catch (e) {
+    const message = short(e);
+    // Some failures block every mint rather than this one — a missing
+    // NameWrapper approval, a parent removed from the registrar. Spending an
+    // order's retries on those means that once the cause is fixed, each order
+    // needs a manual retry. Keep retrying and page the admin instead.
+    if (/Registrar not approved on NameWrapper|Unsupported parent/.test(message)) {
+      await updateOrder(env, o.id, { error: message }, ["paid"]);
+      if (await shouldAlert(env, "mints-blocked", 6 * 3600_000)) {
+        await alertAdmin(env, "Mints are blocked", [
+          message,
+          "",
+          `Paid orders keep retrying every minute. If this is the approval, the Safe must call`,
+          `setApprovalForAll(${env.REGISTRAR_ADDRESS}, true) on the NameWrapper.`,
+        ].join("\n"));
+      }
+      return false;
+    }
     const attempts = o.attempts + 1;
-    await updateOrder(env, o.id, { attempts, error: short(e) }, ["paid"]);
+    await updateOrder(env, o.id, { attempts, error: message }, ["paid"]);
     if (attempts >= MAX_ATTEMPTS) {
       await alertAdmin(env, `Mint failing for ${name}`,
         `Order ${o.id} failed ${attempts} times and has stopped retrying.\nLast error: ${short(e)}\n\nRetry: POST /admin/orders/${o.id}/retry`);
