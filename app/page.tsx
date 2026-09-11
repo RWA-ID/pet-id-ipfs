@@ -526,7 +526,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="foot-bottom">
-            <span>© 2026 PetID Labs · Made with 🐾 for good boys &amp; girls.</span>
+            <span>© 2026 · PetID is operated by Only Buy Bitcoin LLC · Made with 🐾 for good boys &amp; girls.</span>
             <div className="foot-bottom-links">
               <a href="#">Privacy</a>
               <a href="#">Terms</a>
