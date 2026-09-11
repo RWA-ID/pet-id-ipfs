@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
-// DRAFT, 2026-09-11. Written against what the contracts and worker actually do;
-// it has NOT had a legal review. Hector to confirm before this ships:
-//   1. Renewal commitment (§5): PetID renews dogid.eth / catid.eth at its own
-//      cost. On-chain today both expire 2027-04-16 (grace to 2027-07-15), and
-//      every subname's expiry is capped at that date.
-//   2. Refund policy (§6): final once registered, except automatic refunds.
-//   3. Governing law / venue: deliberately absent until the LLC's state is known.
+// Written against what the contracts and worker actually do. It has NOT had a
+// legal review. Hector confirmed the three business decisions on 2026-09-11:
+// PetID covers renewals (§5), purchases are final once registered (§6), and the
+// LLC is a Delaware company (§14). On-chain today dogid.eth and catid.eth expire
+// 2027-04-16 (grace to 2027-07-15) and every subname's expiry is capped at that
+// date, so §5 depends on those renewals actually happening.
 export const metadata = pageMetadata({
   title: "Terms of Service — PetID",
   description: "The terms for registering a PetID name, card purchases held for you, claims, refunds and your pet's public profile.",
@@ -134,7 +133,14 @@ export default function TermsPage() {
           updated terms.
         </p>
 
-        <h2 style={h2}>13. Contact</h2>
+        <h2 style={h2}>13. Governing law</h2>
+        <p style={p}>
+          These terms are governed by the laws of the State of Delaware, United States, without regard to its conflict of
+          law rules. Any dispute arising from them or from your use of PetID will be brought in the state or federal
+          courts located in Delaware, and you and we consent to those courts&apos; jurisdiction.
+        </p>
+
+        <h2 style={h2}>14. Contact</h2>
         <p style={p}>
           Questions about these terms: <a href={`mailto:${CONTACT}`} style={a}>{CONTACT}</a>.
         </p>
