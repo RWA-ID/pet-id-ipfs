@@ -29,5 +29,11 @@ export interface Env {
    */
   RPC_URL: string;
   RESEND_API_KEY?: string;
+  /**
+   * Resend's API origin. Only ever set away from the default to point mail at a
+   * local capture server — scripts/email-auth-e2e.mjs needs to read the sign-in
+   * code it was sent, and only the code's hash is ever stored.
+   */
+  RESEND_API_BASE?: string;
   ADMIN_TOKEN?: string;
 }

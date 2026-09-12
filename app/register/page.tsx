@@ -23,7 +23,7 @@ import { uploadFileToPinata, uploadHtmlToPinata, ipfsUrl } from "@/lib/pinata-br
 import { cidToContenthash } from "@/lib/contenthash";
 import { generateProfileHtml } from "@/lib/profile-html";
 import type { Template } from "@/types/templates";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { SignInPanel } from "@/components/SignInPanel";
 import { usePaySession } from "@/hooks/usePaySession";
 import { CARD_PRICE_CENTS, cardPaymentsEnabled, payApi, type PayOrder } from "@/lib/pay";
 
@@ -145,7 +145,7 @@ export default function RegisterWizard() {
   // "wallet": ETH/USDC, the name goes straight to the wallet.
   // "card":   Google sign-in + Stripe, the name is held in custody until claimed.
   const [mode, setMode] = useState<"wallet" | "card" | null>(null);
-  const { session, signIn, signOut } = usePaySession();
+  const { session, signIn, adopt, signOut } = usePaySession();
   /** Set when this page load is the return from Stripe Checkout. */
   const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
   const [cardOrder, setCardOrder] = useState<PayOrder | null>(null);
@@ -617,10 +617,13 @@ export default function RegisterWizard() {
               <>
                 <p style={{textAlign:"center",fontSize:"14px",color:"#5C3E25",margin:"0 0 18px",lineHeight:1.6}}>
                   {returnOrderId
-                    ? "Sign in with the Google account you used at checkout to follow your order."
-                    : "Sign in with Google. We use it to send your receipt and to keep your name safe until you claim it."}
+                    ? "Sign in with the email address you used at checkout to follow your order."
+                    : "Sign in with your email. We use it to send your receipt and to keep your name safe until you claim it."}
                 </p>
-                <GoogleSignInButton onCredential={async (credential) => { await signIn(credential); setReturnNotice(""); }} />
+                <SignInPanel
+                  onCredential={async (credential) => { await signIn(credential); setReturnNotice(""); }}
+                  onSession={(s) => { adopt(s); setReturnNotice(""); }}
+                />
                 {!returnOrderId && (
                   <button onClick={() => setMode(null)} style={{display:"block",margin:"20px auto 0",background:"transparent",border:"none",cursor:"pointer",fontSize:"13px",color:"#8A6B4E",textDecoration:"underline",fontFamily:"inherit"}}>
                     ← I have a crypto wallet

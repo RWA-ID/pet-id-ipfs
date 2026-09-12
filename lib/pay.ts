@@ -10,8 +10,12 @@
 
 export const PAY_API = (process.env.NEXT_PUBLIC_PAY_API ?? "").replace(/\/$/, "");
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
-/** Card checkout needs both; a build without them simply doesn't offer it. */
-export const cardPaymentsEnabled = !!PAY_API && !!GOOGLE_CLIENT_ID;
+/**
+ * Card checkout needs the worker and nothing else: signing in by email works
+ * without a Google client id, so only a missing PAY_API hides card payments.
+ * GOOGLE_CLIENT_ID being empty just drops the Google button (SignInPanel).
+ */
+export const cardPaymentsEnabled = !!PAY_API;
 /** Display only. The worker charges its own PRICE_CENTS (worker/wrangler.pay.toml). */
 export const CARD_PRICE_CENTS = 1999;
 
@@ -114,6 +118,15 @@ async function call<T>(
 export const payApi = {
   signIn: (credential: string) =>
     call<PaySession>("/auth/google", { method: "POST", body: { credential } }),
+  /**
+   * Ask for a sign-in code. Resolves the same way for an address that has an
+   * account and one that doesn't — the worker won't say which, so the UI must
+   * not imply it either.
+   */
+  emailStart: (email: string) =>
+    call<{ ok: true }>("/auth/email/start", { method: "POST", body: { email } }),
+  emailVerify: (email: string, code: string) =>
+    call<PaySession>("/auth/email/verify", { method: "POST", body: { email, code } }),
   me: (token: string) =>
     call<{ user: PayUser; orders: PayOrder[] }>("/me", { token }),
   checkout: (

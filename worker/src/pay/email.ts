@@ -8,7 +8,7 @@ export async function sendEmail(
 ): Promise<string | null> {
   if (!env.RESEND_API_KEY) return "RESEND_API_KEY not set";
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetch(`${(env.RESEND_API_BASE ?? "https://api.resend.com").replace(/\/+$/, "")}/emails`, {
       method: "POST",
       headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       // Always send the text part as well: some clients prefer it, and a text
@@ -57,7 +57,11 @@ const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** The buyer's Google account name, first word only. Never fails an email. */
+/**
+ * The buyer's first name, when we know it. Google sign-in supplies one; an
+ * email-only account has none, and the greeting falls back to "Thank you!".
+ * Never fails an email.
+ */
 async function firstName(env: Env, o: OrderRow): Promise<string | null> {
   try {
     const row = await env.DB.prepare("SELECT name FROM users WHERE sub = ?").bind(o.user_sub).first<{ name: string | null }>();
@@ -83,7 +87,13 @@ const button = (href: string, label: string, bg = C.amber, fg = "#FFFDF8") =>
        <a href="${href}" style="display:block;padding:15px 34px;font-family:${SANS};font-size:16px;font-weight:bold;color:${fg};text-decoration:none;border-radius:12px;mso-line-height-rule:exactly;line-height:21px;">${label}</a>
      </td></tr></table>`;
 
-function shell(env: Env, preheader: string, sections: string): string {
+function shell(
+  env: Env,
+  preheader: string,
+  sections: string,
+  // A sign-in code is not a receipt, so the footer can't claim the reader bought something.
+  reason = "You're receiving this because you bought a PetID.",
+): string {
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
@@ -103,7 +113,7 @@ function shell(env: Env, preheader: string, sections: string): string {
   <tr><td align="center" style="padding:4px 0 22px 0;font-family:${SERIF};font-size:22px;font-weight:bold;color:${C.body};letter-spacing:0.5px;">PetID</td></tr>
   ${sections}
   <tr><td align="center" style="padding:26px 24px 0 24px;font-family:${SANS};font-size:12px;line-height:20px;color:${C.muted};mso-line-height-rule:exactly;">
-    You're receiving this because you bought a PetID.<br>
+    ${reason}<br>
     PetID is operated by Only Buy Bitcoin LLC · <a href="mailto:${env.NOTIFY_EMAIL}" style="color:${C.muted};text-decoration:underline;">${env.NOTIFY_EMAIL}</a><br>
     <a href="${env.SITE_URL}/terms/" style="color:${C.muted};text-decoration:underline;">Terms</a>
     &nbsp;·&nbsp;
@@ -111,6 +121,57 @@ function shell(env: Env, preheader: string, sections: string): string {
   </td></tr>
 </table>
 </td></tr></table></body></html>`;
+}
+
+/**
+ * The one-time sign-in code.
+ *
+ * Nothing in here is clickable by design — see the note at the top of
+ * emailauth.ts. The code is shown big and monospaced because people read it off
+ * one screen and type it into another.
+ */
+export async function emailLoginCode(env: Env, to: string, code: string, minutes: number): Promise<string | null> {
+  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+  const text = [
+    `Your PetID sign-in code is ${spaced}`,
+    "",
+    `Type it into the page you started on. It expires in ${minutes} minutes and can only be used once.`,
+    "",
+    "If you didn't ask to sign in, you can ignore this email — somebody typed your address by mistake, and nothing has happened to your account.",
+  ].join("\n");
+
+  const sections = `
+  <tr><td style="background-color:${C.card};border:1px solid ${C.line};border-radius:20px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr><td align="center" class="pad" style="padding:44px 44px 0 44px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="background-color:${C.sandDeep};border-radius:999px;padding:7px 16px;font-family:${SANS};font-size:12px;font-weight:bold;color:${C.amberInk};letter-spacing:1.2px;text-transform:uppercase;mso-line-height-rule:exactly;line-height:16px;">Sign in</td>
+        </tr></table>
+      </td></tr>
+      <tr><td align="center" class="pad h1" style="padding:22px 44px 0 44px;font-family:${SERIF};font-size:34px;line-height:40px;color:${C.ink};mso-line-height-rule:exactly;">
+        Here's your code.
+      </td></tr>
+      <tr><td align="center" class="pad" style="padding:16px 52px 0 52px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.body};mso-line-height-rule:exactly;">
+        Type it into the page you started on — no link to click.
+      </td></tr>
+      <tr><td align="center" style="padding:28px 44px 0 44px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td align="center" style="background-color:${C.sand};border:1px solid ${C.line};border-radius:16px;padding:20px 34px;font-family:${MONO};font-size:34px;font-weight:bold;color:${C.ink};letter-spacing:7px;mso-line-height-rule:exactly;line-height:40px;">${spaced}</td>
+        </tr></table>
+      </td></tr>
+      <tr><td align="center" class="pad" style="padding:18px 44px 0 44px;font-family:${SANS};font-size:13px;line-height:20px;color:${C.muted};mso-line-height-rule:exactly;">
+        Expires in ${minutes} minutes · one use only
+      </td></tr>
+      <tr><td align="center" class="pad" style="padding:26px 52px 44px 52px;font-family:${SANS};font-size:13px;line-height:21px;color:${C.muted};mso-line-height-rule:exactly;">
+        Didn't ask to sign in? You can ignore this email — somebody typed your address by mistake, and nothing has happened to your account.
+      </td></tr>
+    </table>
+  </td></tr>`;
+
+  return sendEmail(
+    env, to, `Your PetID sign-in code: ${spaced}`, text,
+    shell(env, `Your PetID sign-in code is ${spaced}`, sections, "You're receiving this because someone asked to sign in to PetID with this address."),
+  );
 }
 
 const helpStrip = (rounded: boolean) =>

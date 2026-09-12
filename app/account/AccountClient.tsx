@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { SignInPanel } from "@/components/SignInPanel";
 import { usePaySession } from "@/hooks/usePaySession";
 import { cardPaymentsEnabled, payApi, PayError, type OrderStatus, type PayOrder } from "@/lib/pay";
 
@@ -35,7 +35,7 @@ const mono: React.CSSProperties = { fontFamily: "'JetBrains Mono',monospace" };
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export function AccountClient() {
-  const { session, ready, signIn, signOut } = usePaySession();
+  const { session, ready, signIn, adopt, signOut } = usePaySession();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const [orders, setOrders] = useState<PayOrder[] | null>(null);
@@ -97,8 +97,8 @@ export function AccountClient() {
           <div style={card}>Card orders aren&apos;t available on this version of the site.</div>
         ) : !ready ? null : !session ? (
           <div style={{ ...card, textAlign: "center" }}>
-            <p style={{ margin: "0 0 20px", color: "#5C3E25" }}>Sign in with the Google account you used at checkout.</p>
-            <GoogleSignInButton onCredential={signIn} text="signin_with" />
+            <p style={{ margin: "0 0 20px", color: "#5C3E25" }}>Sign in with the email address you used at checkout.</p>
+            <SignInPanel onCredential={signIn} onSession={adopt} text="signin_with" />
           </div>
         ) : (
           <>

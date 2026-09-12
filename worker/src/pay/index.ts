@@ -32,6 +32,7 @@ import {
   type OrderRow, type OrderStatus,
 } from "./db";
 import { alertAdmin, emailClaimed, emailMinted, emailRefunded } from "./email";
+import { normalizeEmail, startEmailLogin, sweepLoginCodes, verifyEmailLogin } from "./emailauth";
 import type { Env } from "./env";
 import { verifyGoogleIdToken } from "./google";
 import { qrPng } from "./qr";
@@ -63,6 +64,9 @@ export default {
       // Unauthenticated: Stripe signs its own requests, Google's token is the credential.
       if (url.pathname === "/stripe/webhook" && req.method === "POST") return await handleWebhook(req, env, ctx);
       if (url.pathname === "/auth/google" && req.method === "POST") return await handleGoogle(req, env, cors);
+      // Sign in with any email: ask for a code, then exchange it for a session.
+      if (url.pathname === "/auth/email/start" && req.method === "POST") return await handleEmailStart(req, env, ctx, cors);
+      if (url.pathname === "/auth/email/verify" && req.method === "POST") return await handleEmailVerify(req, env, cors);
       if (url.pathname === "/health") return json({ ok: true }, 200, cors);
 
       // The collar QR as a real image, for receipt emails and for anyone who
@@ -118,14 +122,75 @@ async function handleGoogle(req: Request, env: Env, cors: Cors) {
   const id = await verifyGoogleIdToken(credential, env.GOOGLE_CLIENT_ID);
   if (!id) return json({ error: "Google sign-in could not be verified" }, 401, cors);
 
+  const email = id.email.toLowerCase();
   const now = Date.now();
-  await env.DB.prepare(
-    `INSERT INTO users (sub, email, name, created_at, last_login) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (sub) DO UPDATE SET email = excluded.email, name = excluded.name, last_login = excluded.last_login`,
-  ).bind(id.sub, id.email, id.name ?? null, now, now).run();
 
-  const token = await issueSession(env.SESSION_SECRET, { sub: id.sub, email: id.email, name: id.name });
-  return json({ token, user: { email: id.email, name: id.name ?? null, picture: id.picture ?? null } }, 200, cors);
+  // Three cases, in order:
+  //   1. Seen this Google account before      → that row.
+  //   2. Mailbox already has an account       → adopt it, and record the Google
+  //      sub on it. This is what stops one person ending up with two accounts
+  //      after signing in by email once and with Google once; safe only because
+  //      google.ts requires email_verified.
+  //   3. Nobody                               → new row, keyed on Google's sub
+  //      so existing accounts and session tokens are unaffected.
+  const byGoogle = await env.DB.prepare("SELECT sub FROM users WHERE google_sub = ?")
+    .bind(id.sub).first<{ sub: string }>();
+  const existing = byGoogle
+    ?? (await env.DB.prepare("SELECT sub FROM users WHERE lower(email) = ?").bind(email).first<{ sub: string }>());
+
+  let sub: string;
+  if (existing) {
+    sub = existing.sub;
+    await env.DB.prepare(
+      "UPDATE users SET email = ?, name = ?, google_sub = ?, last_login = ? WHERE sub = ?",
+    ).bind(email, id.name ?? null, id.sub, now, sub).run();
+  } else {
+    sub = id.sub;
+    await env.DB.prepare(
+      `INSERT INTO users (sub, email, name, google_sub, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (sub) DO UPDATE SET email = excluded.email, name = excluded.name,
+         google_sub = excluded.google_sub, last_login = excluded.last_login`,
+    ).bind(sub, email, id.name ?? null, id.sub, now, now).run();
+  }
+
+  const token = await issueSession(env.SESSION_SECRET, { sub, email, name: id.name });
+  return json({ token, user: { email, name: id.name ?? null, picture: id.picture ?? null } }, 200, cors);
+}
+
+/**
+ * Ask for a sign-in code.
+ *
+ * Always 200 with the same body, whether or not the address has an account and
+ * whether or not anything was sent. Anything else turns this into an oracle for
+ * which addresses are registered — and the cooldown means a second request
+ * inside a minute legitimately sends nothing.
+ */
+async function handleEmailStart(req: Request, env: Env, ctx: ExecutionContext, cors: Cors) {
+  const body = await readJson(req);
+  const email = normalizeEmail(body?.email);
+  if (!email) return json({ error: "Enter a valid email address." }, 400, cors);
+
+  // Sending takes a round trip to Resend; the browser doesn't need to wait for
+  // it, and waiting would time the response differently for known addresses.
+  ctx.waitUntil(
+    startEmailLogin(env, email)
+      .then((r) => r.error && console.error("login code send failed", r.error))
+      .catch((e) => console.error("login code threw", short(e))),
+  );
+  return json({ ok: true }, 200, cors);
+}
+
+async function handleEmailVerify(req: Request, env: Env, cors: Cors) {
+  const body = await readJson(req);
+  const email = normalizeEmail(body?.email);
+  const code = typeof body?.code === "string" ? body.code.replace(/\s/g, "") : "";
+  if (!email) return json({ error: "Enter a valid email address." }, 400, cors);
+
+  const r = await verifyEmailLogin(env, email, code);
+  if (!r.ok) return json({ error: r.error }, r.status, cors);
+
+  const token = await issueSession(env.SESSION_SECRET, { sub: r.sub, email: r.email, name: r.name ?? undefined });
+  return json({ token, user: { email: r.email, name: r.name, picture: null } }, 200, cors);
 }
 
 async function handleMe(env: Env, user: Session, cors: Cors) {
@@ -157,7 +222,7 @@ async function handleCheckout(req: Request, env: Env, user: Session, cors: Cors)
   // Both only ever appear in the buyer's own receipt. The name is escaped at
   // render time; the photo URL is pinned to our own gateway so a crafted order
   // can't make us email an image from somewhere else.
-  const petName = String(body?.petName ?? "").replace(/[ -]/g, "").trim().slice(0, 40) || null;
+  const petName = String(body?.petName ?? "").replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 40) || null;
   const rawPhoto = String(body?.photoUrl ?? "");
   const photoUrl = /^https:\/\/ipfs\.onchain-id\.id\/ipfs\/[A-Za-z0-9._/-]{10,120}$/.test(rawPhoto) ? rawPhoto : null;
 
@@ -569,6 +634,8 @@ async function sweep(env: Env) {
   const now = Date.now();
   await env.DB.prepare("UPDATE orders SET status = 'expired', updated_at = ? WHERE status = 'pending' AND created_at < ?")
     .bind(now, now - 2 * 3600_000).run();
+  // Expired codes are already refused on use; this just keeps the table small.
+  await sweepLoginCodes(env);
 }
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
