@@ -11,6 +11,9 @@ export interface OrderRow {
   parent: string;
   label: string;
   contenthash: string;
+  /** Shown in the receipt email. Both optional: orders predate them, and a photo is optional. */
+  pet_name: string | null;
+  photo_url: string | null;
   amount_cents: number;
   status: OrderStatus;
   stripe_session_id: string | null;

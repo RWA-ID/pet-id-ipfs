@@ -116,7 +116,11 @@ export const payApi = {
     call<PaySession>("/auth/google", { method: "POST", body: { credential } }),
   me: (token: string) =>
     call<{ user: PayUser; orders: PayOrder[] }>("/me", { token }),
-  checkout: (token: string, body: { parent: string; label: string; contenthash: string; returnUrl: string }) =>
+  checkout: (
+    token: string,
+    // petName and photoUrl are for the receipt email only; the worker validates both.
+    body: { parent: string; label: string; contenthash: string; returnUrl: string; petName?: string; photoUrl?: string },
+  ) =>
     call<{ url: string; orderId: string }>("/checkout", { token, method: "POST", body }),
   order: (token: string, id: string) =>
     call<{ order: PayOrder }>(`/orders/${id}`, { token }),

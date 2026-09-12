@@ -417,6 +417,9 @@ export default function RegisterWizard() {
           parent: namespace,
           label: subdomain,
           contenthash,
+          // Shown in the receipt email so it arrives with the pet in it.
+          petName: form.name,
+          photoUrl: photoCidUrl,
           // Where Stripe sends the buyer back. The worker only accepts our own hosts.
           returnUrl: window.location.href,
         });
