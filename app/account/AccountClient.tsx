@@ -172,9 +172,10 @@ function OrderCard({ order, token, onChanged }: { order: PayOrder; token: string
 
       {live && (
         <div style={{ marginTop: "8px", fontSize: "13px" }}>
-          <a href={`https://${order.name}.link`} target="_blank" rel="noopener noreferrer" style={{ color: "#C87A2E" }}>
+          <a href={`https://${order.name}.limo`} target="_blank" rel="noopener noreferrer" style={{ color: "#C87A2E" }}>
             View profile
           </a>
+          <span style={{ color: "#8A6B4E" }}> · also at {order.name}.link</span>
         </div>
       )}
 

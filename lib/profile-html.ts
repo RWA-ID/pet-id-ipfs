@@ -216,7 +216,10 @@ export function generateProfileHtml(p: PetProfile): string {
     : `<div class="photo-placeholder"><svg width="64" height="64" viewBox="0 0 40 40" fill="${t.accent}"><ellipse cx="20" cy="26" rx="9" ry="8"/><ellipse cx="9" cy="16" rx="4" ry="5"/><ellipse cx="31" cy="16" rx="4" ry="5"/><ellipse cx="15" cy="8" rx="3.2" ry="4"/><ellipse cx="25" cy="8" rx="3.2" ry="4"/></svg></div>`;
 
   const sexLabel = p.sex === "male" ? "Male" : p.sex === "female" ? "Female" : "";
-  const profileUrl = `https://${p.ens}.link`;
+  // .limo rather than .link: both gateways serve this name, but .limo issues a
+  // certificate for a new name in minutes where .link has taken hours, and this
+  // URL is the one in the collar QR code.
+  const profileUrl = `https://${p.ens}.limo`;
 
   // Contact actions — phone / WhatsApp / Telegram / email
   const telHref = p.ownerPhone ? `tel:${p.ownerPhone.replace(/[^+\d]/g, "")}` : "";

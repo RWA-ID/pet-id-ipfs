@@ -237,12 +237,11 @@ export default function LandingPage() {
             </p>
             <div className="cta-row">
               <Link href="/register/" className="btn btn-primary">
-                Connect Wallet &amp; Mint <span className="btn-price">$19.99</span>
+                💳 Pay by card <span className="btn-price">$19.99</span>
               </Link>
-              <span className="coming-soon">
-                <span className="coming-soon-dot"/>
-                💳 Credit card — Coming Soon
-              </span>
+              <Link href="/register/" className="btn btn-outline">
+                Or pay with crypto <span className="btn-price">ETH / USDC</span>
+              </Link>
             </div>
             <div className="hero-meta">
               <span><span className="check">✓</span> No monthly fees</span>
@@ -290,18 +289,17 @@ export default function LandingPage() {
         <div className="container">
           <div className="section-head">
             <div className="section-kicker">How it works</div>
-            <h2 className="section-title">Connect your wallet. Mint in <em>minutes</em>.</h2>
-            <p className="section-lede">No middlemen, no custody — the ENS subdomain goes directly to your wallet the moment the transaction confirms.</p>
+            <h2 className="section-title">Pay by card or crypto. Mint in <em>minutes</em>.</h2>
+            <p className="section-lede">No wallet? Pay by card and we hold the name safely until you claim it. Already have a wallet? The ENS subdomain goes straight to it the moment the transaction confirms.</p>
           </div>
           <div className="flows">
-            <div className="flow flow-soon" aria-hidden="true" style={{position:"relative"}}>
-              <div className="flow-soon-badge">Coming Soon</div>
+            <div className="flow flow-card" style={{position:"relative"}}>
               <div className="flow-head">
                 <div className="flow-badge">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
                   Credit card
                 </div>
-                <div className="flow-meta"><b>$19.99</b> · no gas fees · claim later</div>
+                <div className="flow-meta"><b>$19.99</b> · secure Stripe checkout · no gas fees</div>
               </div>
               <ol className="flow-steps">
                 <li><div className="flow-num">01</div><div className="flow-body"><h4>Fill out the profile</h4><p>Name, breed, photo, emergency contact. Pick a subdomain — <code>max.dogid.eth</code>.</p></div></li>
@@ -471,10 +469,10 @@ export default function LandingPage() {
             <p className="section-lede">No renewals. No annual fees. The ENS name and IPFS pin are yours for as long as the internet exists.</p>
           </div>
           <div className="price-card">
-            <span className="price-badge">PAY IN ETH OR USDC</span>
+            <span className="price-badge">CARD, ETH OR USDC</span>
             <div className="price-label">PetID — Complete</div>
             <div className="price-row"><span className="price-amount">$19.99</span><span className="price-unit">one-time</span></div>
-            <div className="price-sub">+ gas · pay in ETH or USDC · credit card coming soon</div>
+            <div className="price-sub">Card checkout by Stripe — no wallet, no gas. Or pay in ETH or USDC (+ gas).</div>
             <div className="price-divider"></div>
             <ul className="price-list">
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>ENS subdomain</b> on dogid.eth or catid.eth</span></li>
@@ -484,7 +482,7 @@ export default function LandingPage() {
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>Transferable</b> — move it to any wallet, anytime</span></li>
             </ul>
             <Link href="/register/" className="btn btn-primary price-cta">
-              Connect Wallet &amp; Mint
+              Get your PetID
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </Link>
           </div>

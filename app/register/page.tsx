@@ -290,7 +290,10 @@ export default function RegisterWizard() {
   // render QR code on success screen
   useEffect(() => {
     if (mintPhase !== "done" || !qrRef.current) return;
-    const profileUrl = `https://${subdomain}.${namespace}.link`;
+    // .limo, not .link: both gateways serve the same name, but .limo issues a
+    // certificate for a brand-new name within minutes while .link took hours.
+    // This URL is printed on a collar tag, so it has to work on the first scan.
+    const profileUrl = `https://${subdomain}.${namespace}.limo`;
     qrRef.current.innerHTML = "";
     const size = 160;
     const script = document.createElement("script");
@@ -565,7 +568,7 @@ export default function RegisterWizard() {
                 <li>{mode === "card"
                   ? "The ENS subdomain is registered on-chain and held for you until you claim it"
                   : "The ENS subdomain is registered to your wallet on-chain"}</li>
-                <li>The contenthash is set — resolves instantly at <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px"}}>name.dogid.eth.link</span></li>
+                <li>The contenthash is set — the profile resolves at <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px"}}>name.dogid.eth.limo</span> (and at <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"12px"}}>.eth.link</span>)</li>
               </ul>
             </div>
 
@@ -1135,7 +1138,7 @@ export default function RegisterWizard() {
                 </p>
 
                 <a
-                  href={`https://${ens}.link`}
+                  href={`https://${ens}.limo`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{...btnPrimary, textDecoration:"none", marginBottom:"10px"}}
@@ -1178,7 +1181,7 @@ export default function RegisterWizard() {
                     <div ref={qrRef} />
                   </div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:"#A35E1B",marginBottom:"16px",wordBreak:"break-all"}}>
-                    https://{subdomain}.{namespace}.link
+                    https://{subdomain}.{namespace}.limo
                   </div>
                   <button
                     style={{display:"inline-flex",alignItems:"center",gap:"8px",padding:"11px 20px",background:"#3D2817",color:"#FFFDF8",borderRadius:"10px",fontWeight:600,fontSize:"14px",border:"none",cursor:"pointer",fontFamily:"inherit"}}

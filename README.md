@@ -4,9 +4,9 @@
 
 **Live:** [petid.eth.link](https://petid.eth.link) · [petid.eth.limo](https://petid.eth.limo)
 
-This is the **production PetID app**: a fully client-side dapp, statically exported and pinned to IPFS, served through the `petid.eth` contenthash. There is no backend of any kind — wallets talk to Ethereum, browsers talk to Pinata, and every pet profile is a self-contained HTML page on IPFS.
+This is the **production PetID app**: a client-side dapp, statically exported and pinned to IPFS, served through the `petid.eth` contenthash. Buy with a **credit card** or with **crypto**. Crypto buyers mint straight from their own wallet — the site talks to Ethereum and Pinata and nothing else. Card buyers are served by two small Cloudflare Workers, because a static site on IPFS has nowhere to keep a Stripe key: [`worker/`](worker/) holds `petid-apply` (partner applications, IPFS upload proxy) and `petid-pay` (card checkout, custody, claims). Every pet profile is a self-contained HTML page on IPFS either way.
 
-*(The sibling repo [`RWA-ID/pet-id`](https://github.com/RWA-ID/pet-id) is the paused fiat + crypto version — Cloudflare Pages, Supabase, Helio — awaiting a new payment merchant. It also hosts the Hardhat workspace where the contracts in this README live. Both apps mint into the same registrar, so names are indistinguishable on-chain.)*
+*(The sibling repo [`RWA-ID/pet-id`](https://github.com/RWA-ID/pet-id) is the retired fiat + crypto version — Cloudflare Pages, Supabase, Helio. Card payments now live here on Stripe instead. That repo still hosts the Hardhat workspace where the contracts in this README live. Both apps mint into the same registrar, so names are indistinguishable on-chain.)*
 
 ---
 
@@ -112,17 +112,48 @@ When the wizard is opened with `?partner=0x…` it shows an "In partnership with
 
 ---
 
+## Card payments
+
+Most pet owners don't have a crypto wallet, so card checkout is the default path on the site. It is served by **`petid-pay`** ([`worker/src/pay/`](worker/src/pay/), config `worker/wrangler.pay.toml`) — a second worker, deliberately separate from `petid-apply`: a payments deploy must never be able to break the live site's photo uploads, and the fulfiller key has no business sitting in a worker that accepts file uploads from the internet.
+
+```
+ sign in (Google)  →  Stripe Checkout  →  webhook  →  mintCustodial (name held by the registrar)
+                                                          ↓
+        buyer connects a wallet later and signs a message → releaseCustodial → name is theirs, permanently
+```
+
+- **The buyer needs no wallet to buy.** The name is minted into the registrar's own custody with **no fuses burned**, so a refunded or disputed order can still be revoked. The profile is live immediately either way.
+- **Claiming is free and irreversible.** The buyer signs a plain message proving they control the destination wallet — that signature is what stops a mistyped address from receiving the name. The release burns `CANNOT_UNWRAP | PARENT_CANNOT_CONTROL`, so a claimed name is indistinguishable from one bought with crypto, and nobody can take it back.
+- **One name, one live order.** A D1 partial unique index reserves `(parent, label)` for the duration of a checkout; two people can't both pay for the same name. If a name is registered by someone else before the mint lands, the card is refunded automatically.
+- **Chain writes are serialised.** The fulfiller is a single EOA, so `processQueue()` holds a D1 lease and keeps one transaction in flight; a cron runs every minute to confirm receipts, retry, and expire abandoned checkouts. Failures that block *every* order (a missing NameWrapper approval) don't consume an individual order's retries.
+- **Money moved, name didn't?** A refund or dispute after minting flags the order `revoke_needed` and emails the admin; revoking is owner-only on-chain, then `POST /admin/orders/<id>/revoked` frees the name here.
+- **Gas is the only on-chain cost**: a full card sale (mint + claim) measured **291,538 + 66,371 gas ≈ $0.04** at 0.05 gwei. The fulfiller wallet holds gas money and nothing else; it emails when it drops below 0.001 ETH.
+
+Secrets live as Wrangler secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SESSION_SECRET`, `FULFILLER_PRIVATE_KEY`, `RPC_URL`, `RESEND_API_KEY`, `ADMIN_TOKEN`). Sessions are bearer tokens in `localStorage`, not cookies — the site and the worker sit on different registrable domains, and Safari drops third-party cookies.
+
+**Testing it without spending money:**
+
+```bash
+cd worker
+FORK_URL=<mainnet rpc> node scripts/pay-e2e.mjs
+```
+
+anvil forks mainnet, `wrangler dev` runs the worker against a local D1, and the script plays Stripe with signed webhooks: 33 checks covering forged signatures, replayed webhooks, per-account privacy, wrong-wallet claims, permanent fuses on release, and refund → revoke → name for sale again.
+
+---
+
 ## Contracts (Ethereum mainnet)
 
 | Contract | Address | Role |
 |---|---|---|
-| **`PetIDRegistrarV4`** | [`0xfe4059C99e510C2A039949e77c7c38D7ee99ac53`](https://etherscan.io/address/0xfe4059C99e510C2A039949e77c7c38D7ee99ac53#code) | **live**, verified — USD pricing, ETH + USDC payment, reseller wholesale, margin accounting, withdrawals |
+| **`PetIDRegistrarV5`** | [`0xe189666820863F6e7c578c81eFd7ED9eAb24d1bb`](https://etherscan.io/address/0xe189666820863F6e7c578c81eFd7ED9eAb24d1bb#code) | **live**, verified — everything v4 does, plus **custody for card orders**: `mintCustodial` / `releaseCustodial` / `revokeCustodial`, driven by a `fulfiller` hot wallet |
+| `PetIDRegistrarV4` | [`0xfe4059C99e510C2A039949e77c7c38D7ee99ac53`](https://etherscan.io/address/0xfe4059C99e510C2A039949e77c7c38D7ee99ac53#code) | superseded 2026-09-11 — its NameWrapper approval was revoked, so it can no longer mint |
 | USDC | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | payment asset; `registerWithUsdcPermit` avoids a separate approve tx |
 | ENS `NameWrapper` | `0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401` | wraps `dogid.eth` / `catid.eth`; subnames are wrapped ERC-1155s |
 | `PetSubnameRegistrar` v3 | [`0xfd428E9188c9D858D48Ca2fEE9199Cc2d66D61C1`](https://etherscan.io/address/0xfd428E9188c9D858D48Ca2fEE9199Cc2d66D61C1#code) | superseded — fixed ETH fee, no USDC, no built-in reseller |
 | `PetIDPartnerRouter` | `0x62a1731fA5fC1c208825308Bf2715D42Cd598166` | superseded — v4 folded partner pricing into the registrar |
 
-`dogid.eth` and `catid.eth` are owned by a 2-of-3 Safe, which has granted `setApprovalForAll` to v4. **One approval covers both parents** — `isApprovedForAll` is keyed on owner+operator, not per token.
+`dogid.eth` and `catid.eth` are owned by a 2-of-3 Safe, which has granted `setApprovalForAll` to v5. **One approval covers both parents** — `isApprovedForAll` is keyed on owner+operator, not per token. Deploying a new registrar therefore takes a Safe transaction before it can mint anything: without it every mint reverts with `Registrar not approved on NameWrapper`, which is exactly how the first live card order failed.
 
 - **Pricing is USD-denominated and oracle-read.** `quote(buyer, partner)` returns `(usdCents, weiAmount, usdcAmount)` — always read live, never hardcoded. USDC is charged exactly; the ETH leg floats with the rate and **excess is refunded in the same transaction**, so the UI sends a small buffer rather than risking a revert on a rate move.
   - *Why v4 exists:* v3's fixed `0.00825 ETH` fee had drifted to **$15.39**, not the intended $19.99 — walk-ins were paying roughly the reseller price. Pinning prices to USD is the fix.
@@ -142,11 +173,15 @@ petid-eth-ipfs/
 ├── app/
 │   ├── page.tsx                landing page
 │   ├── register/page.tsx       6-step wizard (single page — safe for IPFS gateways)
-│   │                           steps: wallet → name → template → details → review → mint
-│   │                           partner mode via ?partner=0x…
+│   │                           steps: pay by card or wallet → name → template → details
+│   │                                  → review → pay/mint, then the Stripe return screen
+│   │                           partner mode via ?partner=0x… (card checkout is hidden there)
 │   ├── partner/page.tsx        partner program: pitch → apply → dashboard, one route
 │   │   partner/layout.tsx      route metadata + share card (page.tsx is a client component)
 │   ├── apply/page.tsx          shareable shortcut; relative meta-refresh to ../partner/
+│   ├── account/                card orders: sign in with Google, claim a name to a wallet
+│   ├── privacy/page.tsx        privacy policy (public IPFS profiles, Google, Stripe)
+│   ├── terms/page.tsx          terms of service (custody, claims, refunds, Delaware)
 │   ├── layout.tsx, providers.tsx (wagmi + Reown AppKit), globals.css
 ├── hooks/
 │   └── useRegistrarV4.ts       the whole v4 surface: quote, registerWithEth/Usdc(+Permit),
@@ -157,10 +192,16 @@ petid-eth-ipfs/
 │   ├── templates/registry.ts   template metadata + picker swatches
 │   ├── pinata-browser.ts       Pinata v3 Files API upload from the browser (CIDv1)
 │   ├── contenthash.ts          CID → ENS contenthash bytes (browser-safe, no Buffer)
+│   ├── pay.ts                  petid-pay client: Google sign-in, checkout, orders, claims
+│   └── (hooks/usePaySession.ts + components/GoogleSignInButton.tsx alongside)
 │   ├── seo.ts                  pageMetadata() — every route's title/canonical/share card
 │   └── wagmi.ts                chains + WalletConnect config
 ├── widget/                     @petidentity/widget npm package (vanilla JS, no build)
-├── worker/                     petid-apply — partner applications → KV + email (see its README)
+├── worker/                     two Cloudflare Workers, one package
+│   ├── src/index.ts            petid-apply — partner applications → KV + email, IPFS upload proxy
+│   ├── src/pay/                petid-pay — Google sign-in, Stripe checkout, custody, claims
+│   ├── migrations/pay/         D1 schema for orders (wrangler.pay.toml)
+│   └── scripts/pay-e2e.mjs     end-to-end test: anvil fork + wrangler dev + signed webhooks
 ├── scripts/
 │   ├── deploy-ipfs.mjs         uploads out/ to Pinata as one directory, prints CID
 │   ├── og/card.html + render.sh share cards → public/og/*.png (headless Chrome + sips)
@@ -185,15 +226,17 @@ bun run deploy       # build + pin out/ to Pinata → prints CID
 
 ```
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=   # Reown project id
-NEXT_PUBLIC_PETID_REGISTRAR_V4_ADDRESS=0xfe4059C99e510C2A039949e77c7c38D7ee99ac53
+NEXT_PUBLIC_PETID_REGISTRAR_V4_ADDRESS=0xe189666820863F6e7c578c81eFd7ED9eAb24d1bb   # v5; the var keeps its old name
 NEXT_PUBLIC_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 NEXT_PUBLIC_RPC_URL_MAINNET=            # public RPC is fine
-NEXT_PUBLIC_PINATA_JWT=                 # scoped JWT, Files:write ONLY — it ships to browsers
-NEXT_PUBLIC_PINATA_GATEWAY=https://gateway.pinata.cloud
+NEXT_PUBLIC_PINATA_GATEWAY=https://ipfs.onchain-id.id
+NEXT_PUBLIC_UPLOAD_API=                 # worker/ — proxies photo + profile uploads to Pinata
 NEXT_PUBLIC_PARTNER_APPLY_URL=          # worker/ endpoint; unset ⇒ the form falls back to email
+NEXT_PUBLIC_PAY_API=                    # petid-pay worker; unset ⇒ no card checkout is offered
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=           # Sign in with Google, for card orders
 ```
 
-> **The Pinata JWT is public by design** (browser uploads). It must be a *scoped* key with nothing but file-write permission.
+> **No Pinata key ships to the browser any more.** It used to, as `NEXT_PUBLIC_PINATA_JWT` — and that bundle is pinned to IPFS, which cannot be unpublished, so the key was permanently readable by anyone who looked. Uploads now go through `POST /upload` on the `petid-apply` worker, which holds a PetID-only, pin-only key as a Wrangler secret. Never reintroduce a `NEXT_PUBLIC_` secret: that prefix compiles the value into a public, permanent artifact.
 
 ---
 
@@ -202,7 +245,8 @@ NEXT_PUBLIC_PARTNER_APPLY_URL=          # worker/ endpoint; unset ⇒ the form f
 1. `bun run deploy` — builds and pins `out/` to Pinata, prints the CIDv1 (`bafy…`).
 2. `node scripts/verify-meta.mjs` — asserts every route's canonical, `og:url`, share card and icon links against the **built** HTML. Both failures it catches are invisible in the `.tsx` (see Gotchas), so run it before pinning.
 3. Set the new CID as the `contenthash` of `petid.eth` (ENS manager → Records → contenthash → `ipfs://<cid>`).
-4. Propagation is instant on `.link` / `.limo` once the tx confirms.
+4. The site itself is reachable on `.link` and `.limo` as soon as the tx confirms — those certificates already exist. A **newly minted pet name** is different: each one needs its own certificate, and `.link` has taken hours where `.limo` took minutes.
+5. If the deploy changed the registrar, the Safe must `setApprovalForAll(newRegistrar, true)` on the NameWrapper **before** the contenthash goes up, and revoke the old one immediately after.
 
 Regenerating brand assets (only when the design changes — the PNGs are committed):
 
@@ -220,7 +264,7 @@ Pet profile pages are pinned individually at mint time and are **immutable** —
 - **`writeContractAsync`, not `writeContract`.** The wizard runs async IPFS uploads between the click and the wallet popup; `writeContract` loses the user-gesture chain and the popup never appears.
 - **Failed mint ≠ lost uploads.** The pipeline caches the photo/profile CIDs in state; "Retry transaction" resubmits only the tx. Any edit to the form invalidates the cache. `reset()` from `useWriteContract` must be called before retrying or the stale error instantly re-flags the UI.
 - **CIDv1 only.** Pinata uploads must use `cidVersion: 1`; CIDv0 breaks ENS contenthash resolution. Contenthash = varint multicodec prefix + CID bytes (`lib/contenthash.ts`).
-- **`.link`, not `.limo`, in QR codes** — that's what's printed on physical collars.
+- **`.limo`, not `.link`, in QR codes and profile links.** Both gateways serve every name, but a freshly minted name needs a TLS certificate issued per name: `.limo` had one within ~20 minutes while `.link` still failed the handshake (curl exit 35) two hours later. A collar QR is printed once and scanned by a stranger, so it points at `.limo`; the UI says both work. The marketing site keeps its `.link` canonical.
 - **`tsconfig` targets ES2020** — wagmi/viem code uses bigint literals (`0n`); ES2017 fails the build.
 - **`next: latest`** — the build floats with Next releases (16.x/Turbopack as of 2026-07). A cold build takes ~10 min on an M-series laptop; warm cache ~half.
 - **Hardhat + some RPCs:** `deploy()` can throw inside `formatTransactionResponse` *after* broadcasting. Before re-sending, derive the CREATE address from the deployer nonce and check for code — the contract is probably already there.
