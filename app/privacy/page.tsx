@@ -50,9 +50,9 @@ export default function PrivacyPage() {
             register and hold your name, email your receipt, and let you claim it.
           </li>
           <li>
-            <strong>Card details.</strong> Payments are processed by Stripe on Stripe&apos;s own checkout page. We never receive or store
-            your card number. Stripe&apos;s handling of your payment information is described in{" "}
-            <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#C87A2E" }}>Stripe&apos;s privacy policy</a>.
+            <strong>Card details.</strong> Payments are processed by Stripe on a checkout page hosted by Stripe. We never receive or store
+            your card number. How Stripe handles your payment information is described in{" "}
+            <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#C87A2E" }}>the Stripe privacy policy</a>.
           </li>
           <li><strong>Partner applications.</strong> The business and contact details you submit, which we store and email to our team.</li>
           <li><strong>Technical data.</strong> Our hosting providers process IP addresses and request logs to deliver and protect the service.</li>

@@ -50,7 +50,7 @@ Link anywhere: `https://petid.eth.link/register/?partner=0xYOUR_WALLET`
 
 ## How the money flows
 
-1. Customer pays your price in one transaction, in **ETH or USDC**. The dollar price is converted at the live rate, and any excess ETH is refunded in the same transaction.
+1. Customer pays your price in one transaction, in **ETH or USDC** — from their own wallet. The dollar price is converted at the live rate, and any excess ETH is refunded in the same transaction. Card checkout is not available through partner links, so a customer needs a funded wallet to complete a registration from your widget.
 2. The registrar mints the ENS subname straight to the customer's wallet with the IPFS profile attached.
 3. Your margin — everything above wholesale — accrues to your address inside the registrar contract. Withdraw anytime from the [partner dashboard](https://petid.eth.link/partner/); only your wallet can claim it.
 

@@ -380,7 +380,7 @@ export default function PartnerPage() {
               </span>
               <h1 className="pt-h1">Sell PetID at <em>your</em> price.</h1>
               <p className="pt-lede">
-                Vets, pet shops, groomers and shelters: register PetIDs for your customers at a partner wholesale rate, set the price you charge, and keep the difference. Your margin accrues on-chain — withdraw whenever you like, no invoices and no payout schedule.
+                Vets, pet shops, groomers and shelters: register PetIDs for your customers at a partner wholesale rate, set the price you charge, and keep the difference. Your margin accrues on-chain — withdraw whenever you like, no invoices and no payout schedule. Partner registrations are paid in ETH or USDC from the customer&apos;s own wallet — the card checkout on petid.eth isn&apos;t available on partner links yet.
               </p>
               <div className="pt-cta-row">
                 <button className="pt-btn pt-btn-primary" onClick={() => openConnectModal()}>
@@ -473,7 +473,7 @@ export default function PartnerPage() {
               <div className="pt-grid-2">
                 <div className="pt-card">
                   {[
-                    ["Do I need to understand crypto?", "You need a wallet (MetaMask, Coinbase Wallet, etc.) to receive earnings — that's it. Customers pay from their own wallets and the smart contract handles pricing, minting and your margin automatically."],
+                    ["Do I need to understand crypto?", "You need a wallet (MetaMask, Coinbase Wallet, etc.) to receive earnings, and so does your customer — partner registrations are paid on-chain in ETH or USDC, so a walk-in customer can't pay you by card for one yet. The smart contract handles pricing, minting and your margin automatically."],
                     ["Does it cost anything to join?", "No signup fee and no subscription. Applying is free; going live afterwards is a single on-chain transaction costing a few cents of gas. PetID currently takes no cut of your margin."],
                     ["How long does approval take?", "We review applications by hand, usually within a couple of business days. We'll reply to the email address on your application, and access is enabled for the exact wallet you applied with."],
                   ].map(([q, a]) => (
@@ -485,7 +485,7 @@ export default function PartnerPage() {
                 </div>
                 <div className="pt-card">
                   {[
-                    ["What do customers actually pay?", "Exactly the price you set, quoted in dollars. They choose ETH or USDC at checkout — USDC is the exact amount, and the ETH equivalent is calculated from the live rate with any excess refunded in the same transaction."],
+                    ["What do customers actually pay?", "Exactly the price you set, quoted in dollars. They choose ETH or USDC at checkout — USDC is the exact amount, and the ETH equivalent is calculated from the live rate with any excess refunded in the same transaction. Card payments exist only on petid.eth's own checkout — they don't work through partner links yet, so plan on customers arriving with a wallet."],
                     ["When can I withdraw?", "Anytime. Your earnings sit in the registrar contract under your address — only you can withdraw them. The contract source is verified on Etherscan."],
                     ["Is this custodial?", "No. Registrations mint directly to the customer's wallet, and your margin is claimable only by your wallet. Setting your price to zero pauses your listing whenever you want."],
                   ].map(([q, a]) => (

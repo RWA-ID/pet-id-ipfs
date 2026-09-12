@@ -602,17 +602,13 @@ export default function RegisterWizard() {
                     <button style={{...btnOutline,width:"100%"}} onClick={() => { setMode("card"); setReturnNotice(""); }}>
                       Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
                     </button>
-                    {/* Client component, so the marks load as files rather than inlined SVG. */}
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"12px",marginTop:"12px",flexWrap:"wrap"}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:"8px",opacity:.8}}>
-                        <img src="/brands/visa.svg" alt="Visa" width={28} height={19}/>
-                        <img src="/brands/mastercard.svg" alt="Mastercard" width={28} height={19}/>
-                        <img src="/brands/americanexpress.svg" alt="American Express" width={28} height={19}/>
-                      </span>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"12.5px",color:"#8A6B4E"}}>
-                        <img src="/brands/stripe.svg" alt="" width={13} height={13}/>
-                        Secure checkout powered by Stripe
-                      </span>
+                    {/* Stripe's official wordmark, unaltered — their marks terms
+                        forbid recolouring it. The card network marks that used to
+                        sit alongside are gone: Stripe Checkout shows the accepted
+                        networks itself. */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"12px",flexWrap:"wrap",fontSize:"12.5px",color:"#8A6B4E"}}>
+                      <span>Secure checkout powered by</span>
+                      <img src="/brands/stripe.svg" alt="Stripe" width={42} height={20} style={{display:"block"}}/>
                     </div>
                   </>
                 )}
@@ -903,7 +899,7 @@ export default function RegisterWizard() {
               Review &amp; mint
             </h2>
             <p style={{color:"#5C3E25",fontSize:"15px",margin:"0 0 24px"}}>{mode === "card"
-              ? "Everything looks good? You'll pay on Stripe's secure checkout page next."
+              ? "Everything looks good? You'll pay on the secure Stripe checkout page next."
               : "Everything looks good? One transaction mints and sets the contenthash."}</p>
 
             <div style={{background:"#FEF3E5",border:"1px solid #E8A962",borderRadius:"14px",padding:"16px 20px",marginBottom:"20px"}}>
@@ -943,7 +939,7 @@ export default function RegisterWizard() {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:"7px",fontSize:"12.5px",color:"#8A6B4E",paddingBottom:"4px"}}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
-                  You&apos;ll pay on Stripe&apos;s secure checkout page — PetID never sees your card details.
+                  You&apos;ll pay on the secure Stripe checkout page — PetID never sees your card details.
                 </div>
               </div>
             ) : (<>
@@ -1021,7 +1017,7 @@ export default function RegisterWizard() {
             <div style={{background:"#F5E6D0",borderRadius:"12px",padding:"14px",fontSize:"13px",color:"#5C3E25",lineHeight:1.5,marginTop:"16px",marginBottom:"24px"}}>
               <strong>What happens next:</strong>{" "}
               {mode === "card" ? (
-                <>Your photo and profile are pinned to IPFS, then you pay on Stripe&apos;s secure checkout page. We register <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> right after and hold it for you. Send it to a wallet any time from your account.</>
+                <>Your photo and profile are pinned to IPFS, then you pay on the secure Stripe checkout page. We register <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> right after and hold it for you. Send it to a wallet any time from your account.</>
               ) : (
                 <>Your photo is uploaded to IPFS, the profile HTML is generated and pinned, then a single on-chain transaction registers <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{ens}</span> to your wallet and sets the contenthash.</>
               )}
@@ -1060,7 +1056,7 @@ export default function RegisterWizard() {
                         ? "Sign the USDC approval in your wallet — this is a signature, not a transaction, so it's free."
                         : "Approve the USDC spend in your wallet. The mint follows right after.") :
                    mintPhase === "waiting-wallet" ? "Check your wallet and confirm the transaction." :
-                   mintPhase === "redirecting" ? "Opening Stripe's secure checkout…" :
+                   mintPhase === "redirecting" ? "Opening the secure Stripe checkout…" :
                    mintPhase === "confirming" ? (returnOrderId
                      ? "Payment received. We're registering the name on-chain, which usually takes under a minute."
                      : "Transaction submitted — waiting for confirmation.") :

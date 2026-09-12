@@ -1,42 +1,20 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
 /**
- * Card and Stripe marks, inlined from public/brands/*.svg at build time so they
- * take currentColor and cost no extra request. This is a server component, so
- * the read happens during `next build` and never in a browser.
+ * Stripe's official wordmark (public/brands/stripe.svg), served as a file and
+ * never recoloured: Stripe's marks usage terms forbid altering them, which
+ * rules out the inline-path + currentColor trick this used to do.
  *
- * They sit below the call to action rather than inside it: acceptance marks in
- * a button read as clip art, and Visa/Mastercard/Amex are trademarks shown here
- * because PetID genuinely accepts those cards through Stripe.
+ * The Visa/Mastercard/Amex acceptance marks used to sit here too. They're gone
+ * on purpose — Stripe Checkout displays the accepted networks on its own page,
+ * so showing them here bought nothing and took on three more trademarks.
  */
-const brandPath = (name: string) =>
-  /d="([^"]+)"/.exec(readFileSync(join(process.cwd(), "public/brands", `${name}.svg`), "utf8"))?.[1] ?? "";
-
-const CARD_MARKS = [
-  { id: "visa", label: "Visa", d: brandPath("visa") },
-  { id: "mastercard", label: "Mastercard", d: brandPath("mastercard") },
-  { id: "americanexpress", label: "American Express", d: brandPath("americanexpress") },
-];
-const STRIPE_MARK = brandPath("stripe");
-
 function PaymentMarks({ align = "flex-start" }: { align?: "flex-start" | "center" }) {
   return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:align,gap:"14px",flexWrap:"wrap",marginTop:"16px"}}>
-      <span style={{display:"inline-flex",alignItems:"center",gap:"10px"}}>
-        {CARD_MARKS.map((m) => (
-          <svg key={m.id} width="30" height="20" viewBox="0 0 24 24" fill="var(--brown-3)" role="img" aria-label={m.label} style={{opacity:.8}}>
-            <title>{m.label}</title>
-            <path d={m.d}/>
-          </svg>
-        ))}
-      </span>
-      <span style={{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--brown-3)"}}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={STRIPE_MARK}/></svg>
-        Secure checkout powered by Stripe
-      </span>
+    <div style={{display:"flex",alignItems:"center",justifyContent:align,gap:"8px",flexWrap:"wrap",marginTop:"16px",fontSize:"13px",color:"var(--brown-3)"}}>
+      <span>Secure checkout powered by</span>
+      <img src="/brands/stripe.svg" alt="Stripe" width={42} height={20} style={{display:"block"}}/>
     </div>
   );
 }
@@ -162,7 +140,6 @@ export default function LandingPage() {
         .domain-body h3{font-family:'Fraunces',serif;font-size:28px;font-weight:700;margin:0 0 4px;letter-spacing:-0.02em;color:var(--brown);}
         .domain-body .domain-url{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--amber-dark);margin-bottom:10px;}
         .domain-body p{margin:0;font-size:14px;color:var(--brown-2);}
-        .domain-count{position:absolute;top:20px;right:24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brown-3);letter-spacing:0.05em;}
         .integrate{padding:96px 0;background:var(--cream-2);border-top:1px solid var(--line);}
         .integrate-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center;}
         .integrate-grid>*{min-width:0;}
@@ -297,7 +274,7 @@ export default function LandingPage() {
             </p>
             <div className="cta-row">
               <Link href="/register/" className="btn btn-primary">
-                Build their website <span className="btn-price">$19.99 · card</span>
+                Create Their Page <span className="btn-price">in under 5 minutes</span>
               </Link>
               <Link href="/register/" className="btn btn-outline">
                 Or pay with crypto <span className="btn-price">ETH / USDC</span>
@@ -306,7 +283,7 @@ export default function LandingPage() {
             <PaymentMarks />
             <div className="hero-meta">
               <span><span className="check">✓</span> Pay by card — no crypto wallet needed</span>
-              <span><span className="check">✓</span> No monthly fees</span>
+              <span><span className="check">✓</span> $19.99 once — no monthly fees</span>
               <span><span className="check">✓</span> Yours forever</span>
             </div>
           </div>
@@ -436,11 +413,10 @@ export default function LandingPage() {
           <div className="section-head">
             <div className="section-kicker">Pick a home</div>
             <h2 className="section-title">Two domains. <em>Infinite</em> good names.</h2>
-            <p className="section-lede">Every PetID lives under one of these parents. Build your pet's website with a credit card in a few minutes — claim the name before someone else does.</p>
+            <p className="section-lede">Every PetID lives under one of these parents. Create your pet's page with a credit card in under 5 minutes — claim the name before someone else does.</p>
           </div>
           <div className="domain-grid">
             <Link href="/register/" className="domain-card dog">
-              <div className="domain-count">12,847 claimed</div>
               <div className="domain-emoji">🐕</div>
               <div className="domain-body">
                 <h3>dogid.eth</h3>
@@ -449,7 +425,6 @@ export default function LandingPage() {
               </div>
             </Link>
             <Link href="/register/" className="domain-card cat">
-              <div className="domain-count">8,214 claimed</div>
               <div className="domain-emoji">🐈</div>
               <div className="domain-body">
                 <h3>catid.eth</h3>
@@ -466,7 +441,7 @@ export default function LandingPage() {
           <div className="section-head">
             <div className="section-kicker">For vets &amp; pet shops</div>
             <h2 className="section-title">Your counter. <em>Your</em> price.</h2>
-            <p className="section-lede">Sell PetID registrations from your clinic, shop or grooming salon. You set the price, customers mint on the spot, and your margin accrues on-chain — withdraw whenever you like.</p>
+            <p className="section-lede">Sell PetID registrations from your clinic, shop or grooming salon. You set the price, customers mint on the spot, and your margin accrues on-chain — withdraw whenever you like. Partner registrations are paid in ETH or USDC from the customer&apos;s own wallet — card checkout isn&apos;t available on partner links yet.</p>
           </div>
           <div className="integrate-grid">
             <div>
@@ -482,7 +457,7 @@ export default function LandingPage() {
                   <div className="int-num">02</div>
                   <div className="int-body">
                     <h4>Drop one line on your site</h4>
-                    <p>A script tag renders the PetID button; an iframe embeds the whole flow. No build tools, no account, ~3 kB. Or just share your link at the counter.</p>
+                    <p>A script tag renders the PetID button; an iframe embeds the whole flow. No build tools, no account, ~3 kB. Or just share your link at the counter — your customer will need a wallet with ETH or USDC to complete it.</p>
                   </div>
                 </li>
                 <li>
@@ -558,7 +533,7 @@ export default function LandingPage() {
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>Transferable</b> — move it to any wallet, anytime</span></li>
             </ul>
             <Link href="/register/" className="btn btn-primary price-cta">
-              Build your pet&apos;s website
+              Create Their Page
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </Link>
             <div style={{textAlign:"center",marginTop:"14px",fontSize:"13px",lineHeight:1.6,color:"var(--brown-3)"}}>

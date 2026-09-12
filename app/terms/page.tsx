@@ -54,7 +54,7 @@ export default function TermsPage() {
             transaction is processed) or in USDC. Ethereum network fees (&quot;gas&quot;) are extra and go to the network, not to us.
             Any ETH you send above the price is returned in the same transaction.
           </li>
-          <li><strong>Card.</strong> You pay $19.99 on Stripe&apos;s checkout page. There are no network fees for you.</li>
+          <li><strong>Card.</strong> You pay $19.99 on the Stripe checkout page. There are no network fees for you.</li>
           <li>Names are first come, first served, and each name can be registered only once.</li>
         </ul>
 
