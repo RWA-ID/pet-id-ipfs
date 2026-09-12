@@ -13,6 +13,7 @@
     "wrangler": "^3.99.0"
   },
   "dependencies": {
+    "uqr": "^0.1.3",
     "viem": "^2.56.3"
   }
 }

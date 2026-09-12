@@ -125,6 +125,8 @@ export async function emailMinted(env: Env, o: OrderRow) {
   const pet = o.pet_name || o.label;
   const url = siteUrl(o);
   const account = `${env.SITE_URL}/account/`;
+  // Rendered on demand by this worker — see src/pay/qr.ts.
+  const qrUrl = `${env.PUBLIC_URL}/qr/${o.id}.png`;
   const hi = await firstName(env, o);
 
   const photo = o.photo_url
@@ -183,18 +185,19 @@ export async function emailMinted(env: Env, o: OrderRow) {
         If they ever wander,<br>one scan brings them home.
       </td></tr>
       <tr><td align="center" style="padding:30px 44px 0 44px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="250" style="width:250px;">
-          <tr><td align="center" bgcolor="${C.card}" style="background-color:${C.card};border-radius:18px;padding:22px 18px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="230" style="width:230px;">
+          <tr><td align="center" bgcolor="${C.card}" style="background-color:${C.card};border-radius:18px;padding:20px 18px 18px 18px;">
             <div style="font-family:${SERIF};font-size:16px;font-weight:bold;color:${C.ink};line-height:20px;">Scan if lost</div>
-            <div style="padding-top:6px;font-family:${MONO};font-size:11px;color:${C.muted};line-height:15px;word-break:break-all;">${nameOf(o)}</div>
+            <div style="padding:5px 0 14px 0;font-family:${MONO};font-size:11px;color:${C.muted};line-height:15px;word-break:break-all;">${nameOf(o)}</div>
+            <img src="${qrUrl}" width="170" height="170" alt="QR code linking to ${esc(pet)}'s PetID page" style="display:block;width:170px;height:170px;border:1px solid ${C.line};border-radius:8px;background-color:#FFFFFF;">
           </td></tr>
         </table>
       </td></tr>
       <tr><td align="center" class="pad" style="padding:24px 56px 0 56px;font-family:${SANS};font-size:15px;line-height:24px;color:${C.darkText};mso-line-height-rule:exactly;">
-        Open ${esc(pet)}'s page and tap <strong style="color:${C.cream};">Download QR Code</strong> — print it at any size and clip it to their collar.
-        Whoever finds them points a phone at it and your contact details come straight up.
+        Save it, print it at any size, and clip it to their collar. Whoever finds them points a phone at it and your
+        contact details come straight up. It's on ${esc(pet)}'s page too, any time you need another copy.
       </td></tr>
-      <tr><td align="center" style="padding:26px 44px 42px 44px;">${button(url, "Get the QR tag", C.amberSoft, C.ink)}</td></tr>
+      <tr><td align="center" style="padding:26px 44px 42px 44px;">${button(qrUrl, "Download the QR tag", C.amberSoft, C.ink)}</td></tr>
     </table>
   </td></tr>
 
@@ -262,7 +265,9 @@ export async function emailMinted(env: Env, o: OrderRow) {
     `${env.SITE_URL}/account/`,
     "",
     "STEP 3 — THE COLLAR TAG",
-    `Open ${esc(pet)}'s page and tap "Download QR Code", then print it and clip it to their collar.`,
+    "Save this QR code, print it at any size, and clip it to their collar:",
+    qrUrl,
+    `(it's on ${pet}'s page too, any time you need another copy)`,
     "",
     `Order ${orderNo(o)} · ${money(o.amount_cents)} · one-time payment, no subscription`,
   ].join("\n");

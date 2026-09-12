@@ -43,6 +43,8 @@ PRICE_CENTS = "1999"
 # Mints wait (the order stays paid, the cron retries) while gas is above this.
 MAX_GAS_GWEI = "3"
 SITE_URL = "https://petid.eth.limo"
+# This worker's own origin — receipt emails embed the collar QR from /qr/<order>.png.
+PUBLIC_URL = "https://petid-pay.dmpay.workers.dev"
 NOTIFY_EMAIL = "petid@onchain-id.id"
 # Must be on the verified Resend domain mail.onchain-id.id — see wrangler.toml.
 NOTIFY_FROM = "PetID <petid@mail.onchain-id.id>"

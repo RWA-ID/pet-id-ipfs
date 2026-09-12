@@ -8,6 +8,9 @@ export interface Env {
   PRICE_CENTS: string;
   MAX_GAS_GWEI: string;
   SITE_URL: string;
+  /** This worker's own public origin. Emails link to /qr/<order>.png on it, and
+   *  they're sent from cron and webhook contexts where there's no request to infer it from. */
+  PUBLIC_URL: string;
   NOTIFY_EMAIL: string;
   NOTIFY_FROM: string;
 
