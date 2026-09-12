@@ -44,6 +44,9 @@ export default function LandingPage() {
         .nav-links a:hover{color:var(--amber-dark);}
         .nav-cta{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;background:var(--brown);color:var(--white);font-weight:600;font-size:14px;transition:transform .15s ease,background .15s ease;}
         .nav-cta:hover{background:var(--brown-2);transform:translateY(-1px);}
+        .nav-actions{display:flex;align-items:center;gap:18px;}
+        .nav-signin{font-size:15px;color:var(--brown-2);font-weight:500;white-space:nowrap;}
+        .nav-signin:hover{color:var(--amber-dark);}
         .paw-field{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
         .paw{position:absolute;opacity:.13;color:var(--amber);}
         .hero{position:relative;padding:72px 0 84px;overflow:hidden;}
@@ -209,6 +212,9 @@ export default function LandingPage() {
           .integrate-visual{margin-bottom:56px;}
         }
         @media(max-width:540px){
+          /* Logo + Sign in + the pill is ~400px of content, so the header
+             tightens rather than wraps on a phone. */
+          .nav-actions{gap:12px;}.nav-signin{font-size:14px;}.nav-cta{padding:9px 14px;font-size:13px;}.nav-cta svg{display:none;}
           .container{padding:0 20px;}.features{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr;}.foot-bottom{flex-direction:column;gap:14px;}.cta-row{flex-direction:column;align-items:stretch;}.btn{justify-content:center;}.hero-meta{gap:14px;}.price-card{padding:36px 26px;}.price-divider{margin:0 -26px 24px;}.price-amount{font-size:54px;}.domain-card{padding:30px 24px;gap:20px;}.domain-emoji{font-size:44px;}
         }
       `}</style>
@@ -245,10 +251,18 @@ export default function LandingPage() {
             <a href="#integrate">For businesses</a>
             <a href="#pricing">Pricing</a>
           </nav>
-          <Link href="/register/" className="nav-cta">
-            Connect Wallet
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-          </Link>
+          {/* Two actions, because visitors arrive for two different reasons.
+              "Connect Wallet" used to be the only one, which contradicted the
+              hero's "no crypto wallet needed" and left a returning buyer with
+              no way to their account — the page they need to claim the name
+              they already paid for. */}
+          <div className="nav-actions">
+            <Link href="/account/" className="nav-signin">Sign in</Link>
+            <Link href="/register/" className="nav-cta">
+              Create Their Page
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </Link>
+          </div>
         </div>
       </header>
 
