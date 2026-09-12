@@ -1,5 +1,45 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
+
+/**
+ * Card and Stripe marks, inlined from public/brands/*.svg at build time so they
+ * take currentColor and cost no extra request. This is a server component, so
+ * the read happens during `next build` and never in a browser.
+ *
+ * They sit below the call to action rather than inside it: acceptance marks in
+ * a button read as clip art, and Visa/Mastercard/Amex are trademarks shown here
+ * because PetID genuinely accepts those cards through Stripe.
+ */
+const brandPath = (name: string) =>
+  /d="([^"]+)"/.exec(readFileSync(join(process.cwd(), "public/brands", `${name}.svg`), "utf8"))?.[1] ?? "";
+
+const CARD_MARKS = [
+  { id: "visa", label: "Visa", d: brandPath("visa") },
+  { id: "mastercard", label: "Mastercard", d: brandPath("mastercard") },
+  { id: "americanexpress", label: "American Express", d: brandPath("americanexpress") },
+];
+const STRIPE_MARK = brandPath("stripe");
+
+function PaymentMarks({ align = "flex-start" }: { align?: "flex-start" | "center" }) {
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:align,gap:"14px",flexWrap:"wrap",marginTop:"16px"}}>
+      <span style={{display:"inline-flex",alignItems:"center",gap:"10px"}}>
+        {CARD_MARKS.map((m) => (
+          <svg key={m.id} width="30" height="20" viewBox="0 0 24 24" fill="var(--brown-3)" role="img" aria-label={m.label} style={{opacity:.8}}>
+            <title>{m.label}</title>
+            <path d={m.d}/>
+          </svg>
+        ))}
+      </span>
+      <span style={{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--brown-3)"}}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={STRIPE_MARK}/></svg>
+        Secure checkout powered by Stripe
+      </span>
+    </div>
+  );
+}
 
 export const metadata = pageMetadata({
   title: "PetID — a permanent website for your pet",
@@ -257,16 +297,13 @@ export default function LandingPage() {
             </p>
             <div className="cta-row">
               <Link href="/register/" className="btn btn-primary">
-                💳 Build their website <span className="btn-price">$19.99 · card</span>
+                Build their website <span className="btn-price">$19.99 · card</span>
               </Link>
               <Link href="/register/" className="btn btn-outline">
                 Or pay with crypto <span className="btn-price">ETH / USDC</span>
               </Link>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:"7px",marginTop:"14px",fontSize:"13px",color:"var(--brown-3)"}}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
-              Secure checkout by Stripe. We never see your card details.
-            </div>
+            <PaymentMarks />
             <div className="hero-meta">
               <span><span className="check">✓</span> Pay by card — no crypto wallet needed</span>
               <span><span className="check">✓</span> No monthly fees</span>
@@ -527,10 +564,7 @@ export default function LandingPage() {
             <div style={{textAlign:"center",marginTop:"14px",fontSize:"13px",lineHeight:1.6,color:"var(--brown-3)"}}>
               Pay by card — no crypto wallet needed. We hold the name safely until you want it.
             </div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"10px",fontSize:"12.5px",color:"var(--brown-3)"}}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
-              Secure checkout by Stripe
-            </div>
+            <PaymentMarks align="center" />
           </div>
         </div>
       </section>

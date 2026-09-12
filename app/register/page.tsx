@@ -600,11 +600,19 @@ export default function RegisterWizard() {
                       <span style={{flex:1,height:"1px",background:"#E5D3B6"}}/>
                     </div>
                     <button style={{...btnOutline,width:"100%"}} onClick={() => { setMode("card"); setReturnNotice(""); }}>
-                      💳 Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
+                      Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
                     </button>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"10px",fontSize:"12.5px",color:"#8A6B4E"}}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
-                      Secure checkout by Stripe
+                    {/* Client component, so the marks load as files rather than inlined SVG. */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"12px",marginTop:"12px",flexWrap:"wrap"}}>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:"8px",opacity:.8}}>
+                        <img src="/brands/visa.svg" alt="Visa" width={28} height={19}/>
+                        <img src="/brands/mastercard.svg" alt="Mastercard" width={28} height={19}/>
+                        <img src="/brands/americanexpress.svg" alt="American Express" width={28} height={19}/>
+                      </span>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"12.5px",color:"#8A6B4E"}}>
+                        <img src="/brands/stripe.svg" alt="" width={13} height={13}/>
+                        Secure checkout powered by Stripe
+                      </span>
                     </div>
                   </>
                 )}
