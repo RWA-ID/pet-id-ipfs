@@ -16,7 +16,6 @@
     "next": "latest",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "uqr": "^0.1.3",
     "use-debounce": "^10.1.1",
     "viem": "^2.52.2",
     "wagmi": "^3.6.16"
