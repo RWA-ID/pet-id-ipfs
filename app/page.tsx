@@ -54,6 +54,14 @@ export default function LandingPage() {
         .stack-card{position:absolute;background:var(--white);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;}
         .stack-profile{top:0;left:0;right:60px;bottom:80px;padding:22px;display:flex;flex-direction:column;transform:rotate(-2deg);}
         .profile-photo{width:100%;aspect-ratio:1.2;border-radius:14px;background-image:url('https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=600&q=80');background-size:cover;background-position:center;margin-bottom:14px;border:1px solid var(--line);}
+        .profile-photo-cat{background-image:url('/hero-cat.jpg');}
+        /* The hero pet alternates dog → cat every 6.5s. Pure CSS on purpose: this
+           is a static export, so the swap runs before (and without) hydration.
+           Both cards are absolutely positioned by .stack-profile, so they stack. */
+        .pet-swap{animation:petSwap 13s ease-in-out infinite;}
+        .pet-cat{animation-delay:6.5s;}
+        @keyframes petSwap{0%,47%{opacity:1}50%,97%{opacity:0}100%{opacity:1}}
+        @media (prefers-reduced-motion:reduce){.pet-swap{animation:none;}.pet-cat{display:none;}}
         .profile-name{font-family:'Fraunces',serif;font-weight:700;font-size:26px;letter-spacing:-0.02em;line-height:1;margin:0 0 4px;}
         .profile-ens{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--amber-dark);margin-bottom:12px;}
         .profile-rows{display:grid;gap:4px;font-size:12.5px;color:var(--brown-2);}
@@ -196,6 +204,15 @@ export default function LandingPage() {
           <ellipse cx="15" cy="8" rx="3.2" ry="4" fill="currentColor"/>
           <ellipse cx="25" cy="8" rx="3.2" ry="4" fill="currentColor"/>
         </symbol>
+        {/* A cat paw next to the dog one: smaller, rounder pad, toes in a tighter
+            arc. At 5-8% opacity the difference reads as texture, not as clip art. */}
+        <symbol id="paw-cat" viewBox="0 0 40 40">
+          <ellipse cx="20" cy="27" rx="7.5" ry="6.4" fill="currentColor"/>
+          <ellipse cx="11.5" cy="19" rx="3.1" ry="3.8" fill="currentColor"/>
+          <ellipse cx="28.5" cy="19" rx="3.1" ry="3.8" fill="currentColor"/>
+          <ellipse cx="16.5" cy="12.5" rx="2.8" ry="3.3" fill="currentColor"/>
+          <ellipse cx="23.5" cy="12.5" rx="2.8" ry="3.3" fill="currentColor"/>
+        </symbol>
       </svg>
 
       <header className="nav">
@@ -222,8 +239,11 @@ export default function LandingPage() {
         <div className="paw-field" aria-hidden="true">
           <svg className="paw" style={{top:"10%",left:"4%",width:"64px",height:"64px",transform:"rotate(-22deg)"}}><use href="#paw"/></svg>
           <svg className="paw" style={{top:"68%",left:"2%",width:"44px",height:"44px",transform:"rotate(18deg)",opacity:.06}}><use href="#paw"/></svg>
-          <svg className="paw" style={{top:"85%",left:"44%",width:"36px",height:"36px",transform:"rotate(-8deg)",opacity:.06}}><use href="#paw"/></svg>
+          <svg className="paw" style={{top:"85%",left:"44%",width:"36px",height:"36px",transform:"rotate(-8deg)",opacity:.06}}><use href="#paw-cat"/></svg>
           <svg className="paw" style={{top:"6%",right:"38%",width:"28px",height:"28px",transform:"rotate(40deg)",opacity:.05}}><use href="#paw"/></svg>
+          <svg className="paw" style={{top:"34%",right:"6%",width:"44px",height:"44px",transform:"rotate(16deg)",opacity:.055}}><use href="#paw-cat"/></svg>
+          <svg className="paw" style={{top:"70%",left:"8%",width:"30px",height:"30px",transform:"rotate(-26deg)",opacity:.05}}><use href="#paw-cat"/></svg>
+          <svg className="paw" style={{top:"18%",left:"26%",width:"24px",height:"24px",transform:"rotate(12deg)",opacity:.045}}><use href="#paw"/></svg>
         </div>
         <div className="container hero-grid">
           <div>
@@ -237,20 +257,20 @@ export default function LandingPage() {
             </p>
             <div className="cta-row">
               <Link href="/register/" className="btn btn-primary">
-                💳 Pay by card <span className="btn-price">$19.99</span>
+                💳 Build their website <span className="btn-price">$19.99 · card</span>
               </Link>
               <Link href="/register/" className="btn btn-outline">
                 Or pay with crypto <span className="btn-price">ETH / USDC</span>
               </Link>
             </div>
             <div className="hero-meta">
+              <span><span className="check">✓</span> Pay by card — no crypto wallet needed</span>
               <span><span className="check">✓</span> No monthly fees</span>
               <span><span className="check">✓</span> Yours forever</span>
-              <span><span className="check">✓</span> Instant on-chain</span>
             </div>
           </div>
           <div className="hero-visual">
-            <div className="stack-card stack-profile">
+            <div className="stack-card stack-profile pet-swap">
               <div className="profile-photo" aria-label="Max, a golden retriever"></div>
               <div className="profile-name">Max</div>
               <div className="profile-ens">max.dogid.eth</div>
@@ -261,10 +281,25 @@ export default function LandingPage() {
                 <div className="profile-row"><span>Storage</span><b>IPFS · pinned</b></div>
               </div>
             </div>
+            {/* aria-hidden: the same illustration twice would be read out twice. */}
+            <div className="stack-card stack-profile pet-swap pet-cat" aria-hidden="true">
+              <div className="profile-photo profile-photo-cat"></div>
+              <div className="profile-name">Luna</div>
+              <div className="profile-ens">luna.catid.eth</div>
+              <div className="profile-rows">
+                <div className="profile-row"><span>Breed</span><b>Russian Blue</b></div>
+                <div className="profile-row"><span>Born</span><b>Jun 2023</b></div>
+                <div className="profile-row"><span>Owner</span><b>sam.eth</b></div>
+                <div className="profile-row"><span>Storage</span><b>IPFS · pinned</b></div>
+              </div>
+            </div>
             <div className="stack-card stack-tag">
               <div className="collar-ring"></div>
               <div className="tag-title">Scan if lost</div>
-              <div className="tag-sub">max.dogid.eth</div>
+              <div className="tag-sub" style={{position:"relative"}}>
+                <span className="pet-swap">max.dogid.eth</span>
+                <span className="pet-swap pet-cat" style={{position:"absolute",left:0,right:0}} aria-hidden="true">luna.catid.eth</span>
+              </div>
               <div className="qr-real" aria-label="QR code">
                 <i/><i/><i/><i/><i/><i/><i/><i className="off"/><i/><i/><i/><i/><i/>
                 <i/><i className="off"/><i className="off"/><i className="off"/><i className="off"/><i className="off"/><i/><i className="off"/><i/><i className="off"/><i className="off"/><i className="off"/><i/>
@@ -330,7 +365,7 @@ export default function LandingPage() {
           <div className="section-head">
             <div className="section-kicker">What's included</div>
             <h2 className="section-title">Everything your pet needs to be <em>found</em>.</h2>
-            <p className="section-lede">One purchase. No renewals, no subscriptions, no lock-in.</p>
+            <p className="section-lede">One purchase, by card or crypto. No renewals, no subscriptions, no lock-in.</p>
           </div>
           <div className="features">
             <div className="feature">
@@ -360,7 +395,7 @@ export default function LandingPage() {
           <div className="section-head">
             <div className="section-kicker">Pick a home</div>
             <h2 className="section-title">Two domains. <em>Infinite</em> good names.</h2>
-            <p className="section-lede">Every PetID lives under one of these parents. Claim your pet's before someone else does.</p>
+            <p className="section-lede">Every PetID lives under one of these parents. Build your pet's website with a credit card in a few minutes — claim the name before someone else does.</p>
           </div>
           <div className="domain-grid">
             <Link href="/register/" className="domain-card dog">
@@ -482,9 +517,12 @@ export default function LandingPage() {
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>Transferable</b> — move it to any wallet, anytime</span></li>
             </ul>
             <Link href="/register/" className="btn btn-primary price-cta">
-              Get your PetID
+              Build your pet&apos;s website
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </Link>
+            <div style={{textAlign:"center",marginTop:"14px",fontSize:"13px",lineHeight:1.6,color:"var(--brown-3)"}}>
+              Pay by card — no crypto wallet needed. We hold the name safely until you want it.
+            </div>
           </div>
         </div>
       </section>
