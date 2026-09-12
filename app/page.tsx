@@ -27,7 +27,7 @@ export default function LandingPage() {
         .nav-cta{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;background:var(--brown);color:var(--white);font-weight:600;font-size:14px;transition:transform .15s ease,background .15s ease;}
         .nav-cta:hover{background:var(--brown-2);transform:translateY(-1px);}
         .paw-field{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
-        .paw{position:absolute;opacity:.08;color:var(--amber);}
+        .paw{position:absolute;opacity:.13;color:var(--amber);}
         .hero{position:relative;padding:72px 0 84px;overflow:hidden;}
         .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.15fr 1fr;gap:72px;align-items:center;}
         .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;background:var(--white);border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:500;color:var(--brown-2);box-shadow:var(--shadow-sm);}
@@ -238,12 +238,12 @@ export default function LandingPage() {
       <section className="hero">
         <div className="paw-field" aria-hidden="true">
           <svg className="paw" style={{top:"10%",left:"4%",width:"64px",height:"64px",transform:"rotate(-22deg)"}}><use href="#paw"/></svg>
-          <svg className="paw" style={{top:"68%",left:"2%",width:"44px",height:"44px",transform:"rotate(18deg)",opacity:.06}}><use href="#paw"/></svg>
-          <svg className="paw" style={{top:"85%",left:"44%",width:"36px",height:"36px",transform:"rotate(-8deg)",opacity:.06}}><use href="#paw-cat"/></svg>
-          <svg className="paw" style={{top:"6%",right:"38%",width:"28px",height:"28px",transform:"rotate(40deg)",opacity:.05}}><use href="#paw"/></svg>
-          <svg className="paw" style={{top:"34%",right:"6%",width:"44px",height:"44px",transform:"rotate(16deg)",opacity:.055}}><use href="#paw-cat"/></svg>
-          <svg className="paw" style={{top:"70%",left:"8%",width:"30px",height:"30px",transform:"rotate(-26deg)",opacity:.05}}><use href="#paw-cat"/></svg>
-          <svg className="paw" style={{top:"18%",left:"26%",width:"24px",height:"24px",transform:"rotate(12deg)",opacity:.045}}><use href="#paw"/></svg>
+          <svg className="paw" style={{top:"68%",left:"2%",width:"44px",height:"44px",transform:"rotate(18deg)",opacity:.12}}><use href="#paw"/></svg>
+          <svg className="paw" style={{top:"85%",left:"44%",width:"36px",height:"36px",transform:"rotate(-8deg)",opacity:.14}}><use href="#paw-cat"/></svg>
+          <svg className="paw" style={{top:"6%",right:"38%",width:"28px",height:"28px",transform:"rotate(40deg)",opacity:.15}}><use href="#paw"/></svg>
+          <svg className="paw" style={{top:"34%",right:"6%",width:"44px",height:"44px",transform:"rotate(16deg)",opacity:.12}}><use href="#paw-cat"/></svg>
+          <svg className="paw" style={{top:"70%",left:"8%",width:"30px",height:"30px",transform:"rotate(-26deg)",opacity:.14}}><use href="#paw-cat"/></svg>
+          <svg className="paw" style={{top:"18%",left:"26%",width:"24px",height:"24px",transform:"rotate(12deg)",opacity:.15}}><use href="#paw"/></svg>
         </div>
         <div className="container hero-grid">
           <div>
@@ -262,6 +262,10 @@ export default function LandingPage() {
               <Link href="/register/" className="btn btn-outline">
                 Or pay with crypto <span className="btn-price">ETH / USDC</span>
               </Link>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"7px",marginTop:"14px",fontSize:"13px",color:"var(--brown-3)"}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+              Secure checkout by Stripe. We never see your card details.
             </div>
             <div className="hero-meta">
               <span><span className="check">✓</span> Pay by card — no crypto wallet needed</span>
@@ -522,6 +526,10 @@ export default function LandingPage() {
             </Link>
             <div style={{textAlign:"center",marginTop:"14px",fontSize:"13px",lineHeight:1.6,color:"var(--brown-3)"}}>
               Pay by card — no crypto wallet needed. We hold the name safely until you want it.
+            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"10px",fontSize:"12.5px",color:"var(--brown-3)"}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+              Secure checkout by Stripe
             </div>
           </div>
         </div>

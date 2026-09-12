@@ -602,6 +602,10 @@ export default function RegisterWizard() {
                     <button style={{...btnOutline,width:"100%"}} onClick={() => { setMode("card"); setReturnNotice(""); }}>
                       💳 Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
                     </button>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"10px",fontSize:"12.5px",color:"#8A6B4E"}}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+                      Secure checkout by Stripe
+                    </div>
                   </>
                 )}
               </>
@@ -928,6 +932,10 @@ export default function RegisterWizard() {
                 </div>
                 <div style={{fontSize:"12px",color:"#8A6B4E",textAlign:"right",paddingBottom:"8px"}}>
                   No gas, no crypto needed
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:"7px",fontSize:"12.5px",color:"#8A6B4E",paddingBottom:"4px"}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+                  You&apos;ll pay on Stripe&apos;s secure checkout page — PetID never sees your card details.
                 </div>
               </div>
             ) : (<>
