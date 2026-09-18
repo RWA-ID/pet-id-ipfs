@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { SITE, SITE_NAME, TWITTER } from "@/lib/seo";
+import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 
 // metadataBase is what lets every page write `canonical` and `og:image` as
 // relative paths and still emit absolute URLs — share scrapers reject relative
@@ -48,7 +50,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50 antialiased">
+        {/* Google Analytics (gtag.js), on every route because the root layout is.
+            Plain <script> rather than next/script: an afterInteractive script only runs
+            if hydration succeeds, and this export is served from IPFS gateways where a
+            slow chunk or a wallet-provider clash can leave React down on a page a reader
+            still saw. These tags are in the emitted HTML and fire either way.
+
+            Both origins below are allowlisted in scripts/inject-csp.mjs — without that
+            the CSP blocks them silently. Client-side route changes are gtag's blind
+            spot; <GoogleAnalytics /> below reports those. */}
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_MEASUREMENT_ID}');`,
+          }}
+        />
         <Providers>{children}</Providers>
+        <GoogleAnalytics />
       </body>
     </html>
   );

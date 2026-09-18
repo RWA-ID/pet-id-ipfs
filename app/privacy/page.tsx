@@ -58,13 +58,18 @@ export default function PrivacyPage() {
           <li><strong>Technical data.</strong> Our hosting providers process IP addresses and request logs to deliver and protect the service.</li>
         </ul>
         <p style={p}>
-          We don&apos;t use advertising or analytics trackers. Your browser stores a sign-in token for card orders; signing out removes it.
+          We don&apos;t use advertising trackers, and we never sell or share your data for advertising. We do use Google
+          Analytics to see how many people visit and which pages they use. It sets cookies on your device and receives your
+          IP address, the pages you view and general details about your browser and region, which Google handles under its
+          own privacy policy. It is never given your name, email address, wallet address or anything about your order, and
+          any content blocker or the browser&apos;s &ldquo;do not track&rdquo; tooling will stop it with no effect on the
+          site. Your browser also stores a sign-in token for card orders; signing out removes it.
         </p>
 
         <h2 style={h2}>Who processes data for us</h2>
         <ul>
           <li>Stripe (card payments)</li>
-          <li>Google (sign-in)</li>
+          <li>Google (sign-in, and Google Analytics for visitor statistics)</li>
           <li>Cloudflare (our backend services and order database)</li>
           <li>Pinata (IPFS hosting of photos and profile pages)</li>
           <li>Resend (receipts and notification emails)</li>

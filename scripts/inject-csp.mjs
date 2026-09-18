@@ -88,6 +88,26 @@ const APP_BACKENDS = [
  */
 const GOOGLE_GSI = "https://accounts.google.com/gsi/";
 
+/**
+ * Google Analytics 4 (app/layout.tsx, lib/gtag.ts).
+ *
+ * These are the origins Google documents for GA4 under a CSP, and all three lines are
+ * load-bearing: gtag.js is fetched from googletagmanager.com, the hits POST to
+ * google-analytics.com, and a region-routed property answers on a subdomain
+ * (region1.google-analytics.com), which is why these wildcard rather than pin a host.
+ * analytics.google.com covers the server-side/consent variants gtag can fall back to.
+ *
+ * Getting this wrong fails the way every CSP mistake on this site fails — silently.
+ * There is no console error and no failed request to notice; analytics simply stays
+ * empty and looks like "nobody visited". Verify with a securitypolicyviolation
+ * listener, not by reading the console.
+ */
+const GOOGLE_ANALYTICS = [
+  "https://*.googletagmanager.com",
+  "https://*.google-analytics.com",
+  "https://*.analytics.google.com",
+];
+
 const POLICY = [
   ["default-src", "'self'"],
   ["base-uri", "'self'"],
@@ -102,7 +122,7 @@ const POLICY = [
   // directive still buys is the origin restriction — an injected
   // <script src="https://evil/…"> is blocked, as is any attempt to exfiltrate
   // to an origin not named below, which is the half that carries data out.
-  ["script-src", `'self' 'unsafe-inline' 'wasm-unsafe-eval' ${GOOGLE_GSI}client`],
+  ["script-src", `'self' 'unsafe-inline' 'wasm-unsafe-eval' ${GOOGLE_GSI}client https://*.googletagmanager.com`],
 
   // AppKit injects its theme into shadow DOM at runtime, page.tsx carries an
   // inline <style>, and that style block @imports Google Fonts.
@@ -118,9 +138,10 @@ const POLICY = [
   // is a CSS background-image in app/page.tsx, so it is governed by img-src and
   // fails *silently* (an empty card, no error in the console) when left out.
   ["img-src", ["'self'", "data:", "blob:", ...WALLETCONNECT,
-    ...PINATA_GATEWAY, "https://images.unsplash.com"].join(" ")],
+    ...PINATA_GATEWAY, "https://images.unsplash.com", ...GOOGLE_ANALYTICS].join(" ")],
 
   ["connect-src", ["'self'", ...APP_BACKENDS, ...WALLETCONNECT, ...COINBASE, GOOGLE_GSI,
+    ...GOOGLE_ANALYTICS,
     "wss://*.walletconnect.com", "wss://*.walletconnect.org"].join(" ")],
 
   ["frame-src", ["'self'", ...WALLETCONNECT, "https://keys.coinbase.com", GOOGLE_GSI].join(" ")],
