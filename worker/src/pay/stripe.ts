@@ -1,11 +1,10 @@
 /**
- * The four Stripe calls this worker makes, over plain fetch. Stripe's API takes
+ * The Stripe calls this worker makes, over plain fetch. Stripe's API takes
  * form-encoded bodies with bracketed nesting (line_items[0][price_data][…]),
  * which is all the SDK would be doing for us.
  */
 import type { Env } from "./env";
 
-const API = "https://api.stripe.com/v1";
 const enc = new TextEncoder();
 
 type Params = { [key: string]: string | number | undefined | Params | Params[] };
@@ -21,15 +20,18 @@ function flatten(obj: Params, prefix = "", out = new URLSearchParams()): URLSear
   return out;
 }
 
-async function call<T>(env: Env, path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
+async function call<T>(
+  env: Env, path: string, params: Params = {}, idempotencyKey?: string, method: "GET" | "POST" | "DELETE" = "POST",
+): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
     "Content-Type": "application/x-www-form-urlencoded",
   };
   // A retried request with the same key returns the original result instead of
-  // creating a second session or a second refund.
+  // creating a second session, refund, account or transfer.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
-  const res = await fetch(`${API}${path}`, { method: "POST", headers, body: flatten(params).toString() });
+  const api = `${(env.STRIPE_API_BASE ?? "https://api.stripe.com").replace(/\/+$/, "")}/v1`;
+  const res = await fetch(`${api}${path}`, { method, headers, body: method === "POST" ? flatten(params).toString() : undefined });
   const data = (await res.json()) as { error?: { code?: string; message?: string } };
   if (!res.ok) {
     throw new Error(`stripe ${res.status} ${data.error?.code ?? ""}: ${(data.error?.message ?? "").slice(0, 200)}`);
@@ -89,6 +91,65 @@ export function refundPaymentIntent(env: Env, paymentIntent: string, orderId: st
     payment_intent: paymentIntent,
     metadata: { order_id: orderId },
   }, `refund-${orderId}`);
+}
+
+// ─── Connect: paying pet shops ───────────────────────────────────────────────
+
+export interface ConnectedAccount {
+  id: string;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  capabilities?: { transfers?: string };
+  requirements?: { currently_due?: string[]; disabled_reason?: string | null };
+}
+
+/**
+ * An Express account for a shop: Stripe hosts its onboarding, identity checks,
+ * bank details, tax forms and payout dashboard. Transfers only — the shop never
+ * takes card payments itself, it receives a share of ours.
+ *
+ * US only for now: our platform account is US, and a cross-border "recipient"
+ * account is a different agreement that not every country supports.
+ */
+export function createConnectedAccount(
+  env: Env, o: { partnerCode: string; email: string; businessName: string },
+) {
+  return call<ConnectedAccount>(env, "/accounts", {
+    type: "express",
+    country: "US",
+    email: o.email,
+    capabilities: { transfers: { requested: "true" } },
+    business_profile: { name: o.businessName, product_description: "Pet shop referring PetID registrations" },
+    metadata: { partner_code: o.partnerCode },
+  }, `connect-account-${o.partnerCode}`);
+}
+
+export const getConnectedAccount = (env: Env, id: string) =>
+  call<ConnectedAccount>(env, `/accounts/${encodeURIComponent(id)}`, {}, undefined, "GET");
+
+/** A one-time link into Stripe's hosted onboarding. Expires in minutes; make a new one per click. */
+export function createOnboardingLink(env: Env, account: string, returnUrl: string, refreshUrl: string) {
+  return call<{ url: string }>(env, "/account_links", {
+    account, type: "account_onboarding", return_url: returnUrl, refresh_url: refreshUrl,
+  });
+}
+
+/** A one-time sign-in to the shop's Stripe Express dashboard: its payouts, bank and tax forms. */
+export const createDashboardLink = (env: Env, account: string) =>
+  call<{ url: string }>(env, `/accounts/${encodeURIComponent(account)}/login_links`);
+
+/** Moves money from our balance to the shop's. Keyed on the payout id, so a retry can't pay twice. */
+export function createTransfer(
+  env: Env, o: { payoutId: string; partnerCode: string; account: string; amountCents: number; description: string },
+) {
+  return call<{ id: string }>(env, "/transfers", {
+    amount: o.amountCents,
+    currency: "usd",
+    destination: o.account,
+    transfer_group: `payout-${o.payoutId}`,
+    description: o.description,
+    metadata: { payout_id: o.payoutId, partner_code: o.partnerCode },
+  }, `transfer-${o.payoutId}`);
 }
 
 /**

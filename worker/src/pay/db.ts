@@ -42,6 +42,24 @@ export interface PartnerRow {
   commission_cents: number;
   status: "active" | "paused";
   stripe_account_id: string | null;
+  /** 1 once Stripe says the shop's account can receive transfers. */
+  payouts_enabled: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PayoutRow {
+  id: string;
+  partner_code: string;
+  stripe_account_id: string;
+  amount_cents: number;
+  credit_cents: number;
+  debit_cents: number;
+  orders_count: number;
+  status: "pending" | "paid" | "failed";
+  stripe_transfer_id: string | null;
+  error: string | null;
+  attempts: number;
   created_at: number;
   updated_at: number;
 }
@@ -52,6 +70,9 @@ export interface PartnerRow {
  */
 export const EARNING_STATUSES = ["minted", "claim_requested", "claiming", "claimed"] as const;
 export const ON_THE_WAY_STATUSES = ["paid", "minting"] as const;
+
+/** A constant status list as SQL: `'a', 'b'`. Only ever given the literal arrays above, never input. */
+export const sqlList = (xs: readonly string[]) => xs.map((s) => `'${s}'`).join(", ");
 
 /** What a shop sees about itself. */
 export function publicPartner(p: PartnerRow) {
@@ -64,7 +85,9 @@ export function publicPartner(p: PartnerRow) {
     address: p.address,
     commissionCents: p.commission_cents,
     status: p.status,
-    payoutsConnected: !!p.stripe_account_id,
+    // none → no Stripe account yet; incomplete → started onboarding, Stripe still
+    // needs something; active → transfers will land.
+    payouts: p.payouts_enabled ? "active" : p.stripe_account_id ? "incomplete" : "none",
     createdAt: p.created_at,
   };
 }
@@ -72,6 +95,9 @@ export function publicPartner(p: PartnerRow) {
 const UPDATABLE = new Set<keyof OrderRow>([
   "status", "stripe_session_id", "payment_intent", "order_ref", "mint_tx", "claim_to", "claim_tx", "error", "attempts",
 ]);
+
+export const getPartnerByUser = (env: Env, sub: string) =>
+  env.DB.prepare("SELECT * FROM partners WHERE user_sub = ?").bind(sub).first<PartnerRow>();
 
 export const getOrder = (env: Env, id: string) =>
   env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first<OrderRow>();

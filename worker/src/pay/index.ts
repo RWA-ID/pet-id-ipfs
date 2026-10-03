@@ -35,6 +35,9 @@ import { alertAdmin, emailClaimed, emailMinted, emailRefunded } from "./email";
 import { normalizeEmail, startEmailLogin, sweepLoginCodes, verifyEmailLogin } from "./emailauth";
 import type { Env } from "./env";
 import { verifyGoogleIdToken } from "./google";
+import {
+  handleAdminPayouts, handleConnect, handleDashboardLink, isPayday, PAYOUT_CRON, runPayouts,
+} from "./payouts";
 import { qrPng } from "./qr";
 import { issueSession, sessionFrom, type Session } from "./session";
 import {
@@ -105,6 +108,9 @@ export default {
       // The signed-in account's own shop: sign up, update, and see what it has earned.
       if (url.pathname === "/shop" && req.method === "GET") return await handleGetMyShop(env, user, cors);
       if (url.pathname === "/shop" && req.method === "POST") return await handleSaveMyShop(req, env, user, cors);
+      // Getting paid: Stripe-hosted bank setup, and the shop's own Stripe payouts page.
+      if (url.pathname === "/shop/payouts/connect" && req.method === "POST") return await handleConnect(req, env, user, cors);
+      if (url.pathname === "/shop/payouts/dashboard" && req.method === "POST") return await handleDashboardLink(env, user, cors);
 
       const m = url.pathname.match(/^\/orders\/([0-9a-f-]{36})(\/claim|\/claim-message)?$/);
       if (m && !m[2] && req.method === "GET") return await handleGetOrder(env, user, m[1], cors);
@@ -118,7 +124,14 @@ export default {
     }
   },
 
-  async scheduled(_controller, env, ctx): Promise<void> {
+  async scheduled(controller, env, ctx): Promise<void> {
+    // Pet-shop payouts: daily retries, new payouts on the 1st. Kept off the chain
+    // queue, so neither waits on the other.
+    if (controller.cron === PAYOUT_CRON) {
+      ctx.waitUntil(runPayouts(env, { createNew: isPayday(controller.scheduledTime) })
+        .catch((e) => alertAdmin(env, "Shop payout run crashed", short(e))));
+      return;
+    }
     ctx.waitUntil(processQueue(env).then(() => sweep(env)));
   },
 } satisfies ExportedHandler<Env>;
@@ -671,7 +684,7 @@ async function handleAdmin(req: Request, env: Env, ctx: ExecutionContext, url: U
     return json({ orders: (await stmt.all<OrderRow>()).results });
   }
 
-  const shops = await handleAdminShops(req, env, url);
+  const shops = await handleAdminShops(req, env, url) ?? await handleAdminPayouts(req, env, url);
   if (shops) return shops;
 
   const m = url.pathname.match(/^\/admin\/orders\/([0-9a-f-]{36})\/(retry|revoked|resend-receipt)$/);

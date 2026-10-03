@@ -41,7 +41,7 @@ const ARROW = (
 
 const FAQ: [string, string][] = [
   ["How do I get paid?",
-    "By bank transfer, through Stripe, the company that already processes PetID's card payments. Before your first payout we'll email you a link to add your bank details on Stripe's secure page. It takes about 5 minutes, and PetID never sees your bank details. Payouts go out once a month."],
+    "By bank transfer, through Stripe, the company that already processes PetID's card payments. Connect your bank from your shop dashboard in about 5 minutes; PetID never sees your bank details. Payouts go out on the 1st of each month for registrations more than 30 days old, after the refund window closes. Amounts under $20 roll over to the next month. Payouts are for US shops for now."],
   ["When does a registration count?",
     "As soon as the customer's card payment goes through and their pet's PetID is created, usually within a minute. If a customer is later refunded, that registration doesn't earn."],
   ["What if a customer doesn't scan the QR code?",
@@ -337,7 +337,7 @@ function SignUpForm({ token, email, onSaved }: { token: string; email: string; o
         {saving ? "Creating your flyer…" : <>Create my flyer {ARROW}</>}
       </button>
       {missing.length > 0 && <p className="sh-status">Still needed: {missing.join(", ")}.</p>}
-      <p className="sh-status">Free, no contract. You can pause any time by emailing us.</p>
+      <p className="sh-status">Free, no contract. You can pause any time by emailing us. Payouts are for US shops for now.</p>
     </form>
   );
 }
@@ -380,12 +380,7 @@ function Dashboard({ mine, token, onSaved }: { mine: MyShop; token: string; onSa
             <div className="sh-stat-num">{stats.onTheWay}</div>
           </div>
         </div>
-        <div className="sh-note" style={{ margin: "16px 0 32px" }}>
-          <b>Getting paid:</b>{" "}
-          {shop.payoutsConnected
-            ? "your bank is connected through Stripe. Earnings are paid out once a month."
-            : <>before your first payout we&apos;ll email <b>{shop.email}</b> a link to connect your bank through Stripe. It takes about 5 minutes. Payouts go out once a month.</>}
-        </div>
+        <GettingPaid mine={mine} token={token} />
       </div>
 
       <div className="sh-dash">
@@ -452,6 +447,96 @@ function Dashboard({ mine, token, onSaved }: { mine: MyShop; token: string; onSa
         </div>
       </div>
     </section>
+  );
+}
+
+const longDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+
+/**
+ * Connecting a bank and seeing payouts. Stripe hosts the bank setup; it sends
+ * the shop back here with ?connect=done, or ?connect=retry when its one-time
+ * link expired, in which case we ask for a fresh one straight away.
+ */
+function GettingPaid({ mine, token }: { mine: MyShop; token: string }) {
+  const shop = mine.shop!;
+  const p = mine.payouts!;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function go(kind: "connect" | "dashboard") {
+    setBusy(true);
+    setError("");
+    try {
+      const { url } = kind === "connect"
+        ? await payApi.connectBank(token, `${location.origin}${location.pathname}`)
+        : await payApi.payoutsDashboard(token);
+      location.assign(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get("connect");
+    if (!q) return;
+    history.replaceState(null, "", location.pathname);
+    if (q === "retry") go("connect");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const next = longDate(p.nextPayoutAt);
+  return (
+    <div className="sh-card sh-paid">
+      <div className="sh-paid-main">
+        <h2 className="sh-h2">Getting paid</h2>
+        {shop.payouts === "active" ? (
+          <>
+            <p className="sh-body"><span className="sh-ok">✓</span> Your bank is connected. Your next payout is on <b>{next}</b>.</p>
+            <button className="sh-btn sh-btn-outline" disabled={busy} onClick={() => go("dashboard")}>
+              {busy ? "Opening Stripe…" : "View payouts on Stripe"}
+            </button>
+          </>
+        ) : shop.payouts === "incomplete" ? (
+          <>
+            <p className="sh-body">Almost there. Stripe needs a few more details before it can send you money.</p>
+            <button className="sh-btn sh-btn-primary" disabled={busy} onClick={() => go("connect")}>
+              {busy ? "Opening Stripe…" : <>Finish bank setup {ARROW}</>}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="sh-body">
+              Connect your bank and we&apos;ll send your earnings there every month. It takes about 5 minutes on Stripe&apos;s secure page.
+              Stripe will ask for your bank account and a few details to confirm who you are. PetID never sees them.
+            </p>
+            <button className="sh-btn sh-btn-primary" disabled={busy} onClick={() => go("connect")}>
+              {busy ? "Opening Stripe…" : <>Connect my bank {ARROW}</>}
+            </button>
+          </>
+        )}
+        {error && <div className="sh-note sh-note-err" role="alert">{error}</div>}
+        <p className="sh-hint" style={{ marginTop: 14 }}>
+          Payouts go out on the 1st of each month for registrations more than {p.holdDays} days old, after the refund window closes.
+          Amounts under {usd(p.minCents)} roll over to the next month. US shops only for now.
+        </p>
+      </div>
+      <div className="sh-paid-nums">
+        <div><div className="sh-mono">Ready for {next}</div><div className="sh-paid-num">{usd(p.readyCents)}</div></div>
+        <div><div className="sh-mono">In the {p.holdDays}-day refund window</div><div className="sh-paid-num">{usd(p.holdingCents)}</div></div>
+        <div><div className="sh-mono">Paid to you so far</div><div className="sh-paid-num">{usd(p.paidCents)}</div></div>
+        {p.history.length > 0 && (
+          <ul className="sh-recent" style={{ gridColumn: "1 / -1" }}>
+            {p.history.map((h, i) => (
+              <li key={i}>
+                <span>{new Date(h.at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · {h.orders} pet{h.orders === 1 ? "" : "s"}</span>
+                <span className={h.state === "paid" ? "sh-earned" : "sh-processing"}>{h.state === "paid" ? usd(h.amountCents) : "Sending…"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -602,6 +687,11 @@ const CSS = `
 .sh-stat-dark{background:var(--brown);border:none;color:var(--cream);}
 .sh-stat-dark .sh-mono{color:rgba(251,245,236,.6);}
 .sh-stat-dark .sh-stat-num{color:var(--amber-soft);}
+.sh-paid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:16px 0 32px;}
+.sh-paid-main .sh-body{margin:6px 0 16px;}
+.sh-paid-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-content:start;background:var(--cream);border-radius:16px;padding:18px;}
+.sh-paid-num{font-family:'Fraunces',serif;font-weight:700;font-size:24px;margin-top:4px;}
+.sh-ok{color:#2D7D46;font-weight:700;}
 .sh-dash{display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:start;}
 .sh-linkbox{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--cream-2);border-radius:10px;padding:10px 12px;word-break:break-all;}
 .sh-recent{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:0;}
@@ -633,14 +723,14 @@ const CSS = `
 @media (max-width:940px){
   .sh-hero{grid-template-columns:1fr;gap:48px;padding:36px 28px 56px;}
   .sh-hero-art{max-width:480px;}
-  .sh-grid-3,.sh-grid-2,.sh-dash{grid-template-columns:1fr;}
+  .sh-grid-3,.sh-grid-2,.sh-dash,.sh-paid{grid-template-columns:1fr;}
   .sh-nav-links{display:none;}
 }
 @media (max-width:600px){
   .sh-shell{padding:0 16px;}
   .sh-hero{padding:28px 16px 48px;}
   .sh-form{grid-template-columns:1fr;}
-  .sh-stats{grid-template-columns:1fr;}
+  .sh-stats,.sh-paid-nums{grid-template-columns:1fr;}
   .sh-card{padding:22px;}
   .sh-cta-row .sh-btn{width:100%;}
   .sh-earn-chip{left:8px;bottom:-26px;}

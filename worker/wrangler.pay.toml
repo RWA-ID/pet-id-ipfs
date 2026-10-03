@@ -30,8 +30,12 @@ migrations_dir = "migrations/pay"
 # Settles in-flight transactions, sends the next mint or claim, and expires
 # abandoned checkouts. Webhooks and claim requests also kick the queue directly,
 # so this is the backstop, not the fast path.
+#
+# The second schedule is pet-shop payouts, daily at 15:00 UTC (src/pay/payouts.ts):
+# new payouts on the 1st, and every day a retry of any transfer Stripe refused.
+# Keep it equal to PAYOUT_CRON there: scheduled() tells the two apart by string.
 [triggers]
-crons = ["* * * * *"]
+crons = ["* * * * *", "0 15 * * *"]
 
 [vars]
 GOOGLE_CLIENT_ID = "752188204705-qafp666708ta62hl1lmlb22g2oo0sl8d.apps.googleusercontent.com"
@@ -44,6 +48,11 @@ PRICE_CENTS = "1999"
 # shops that sign up after a change; existing shops keep the rate on their row.
 # The site shows it from SHOP_COMMISSION_CENTS in lib/pay.ts — change both.
 SHOP_COMMISSION_CENTS = "500"
+# Shops are paid on the 1st of each month (the daily cron below) for orders at
+# least this old, so refunds land before the money leaves. Amounts under the
+# minimum roll over. /shops/ states both — change the copy there too.
+SHOP_PAYOUT_MIN_CENTS = "2000"
+SHOP_PAYOUT_HOLD_DAYS = "30"
 # Mints wait (the order stays paid, the cron retries) while gas is above this.
 MAX_GAS_GWEI = "3"
 SITE_URL = "https://petid.eth.limo"

@@ -8,6 +8,10 @@ export interface Env {
   PRICE_CENTS: string;
   /** What a new shop earns per card registration it refers. Copied onto the shop's row at sign-up. */
   SHOP_COMMISSION_CENTS: string;
+  /** A shop's monthly payout is skipped, and rolls over, below this. */
+  SHOP_PAYOUT_MIN_CENTS: string;
+  /** An order is paid out only once it's this old, so a refund lands before the money leaves. */
+  SHOP_PAYOUT_HOLD_DAYS: string;
   MAX_GAS_GWEI: string;
   SITE_URL: string;
   /** This worker's own public origin. Emails link to /qr/<order>.png on it, and
@@ -38,4 +42,6 @@ export interface Env {
    */
   RESEND_API_BASE?: string;
   ADMIN_TOKEN?: string;
+  /** Stripe's API origin. Only ever changed to point at a local stand-in — scripts/payouts-e2e.mjs. */
+  STRIPE_API_BASE?: string;
 }

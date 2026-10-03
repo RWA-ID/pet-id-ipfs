@@ -49,8 +49,22 @@ export interface Shop {
   address: string;
   commissionCents: number;
   status: "active" | "paused";
-  payoutsConnected: boolean;
+  /** none: no bank yet. incomplete: started Stripe's setup, not finished. active: payouts will land. */
+  payouts: "none" | "incomplete" | "active";
   createdAt: number;
+}
+
+/** Getting paid, as the shop's dashboard shows it (worker/src/pay/payouts.ts payoutSummary). */
+export interface ShopPayouts {
+  /** Past the refund hold and owed, net of clawbacks. Paid on the next run if ≥ minCents. */
+  readyCents: number;
+  /** Earned, still inside the refund hold. */
+  holdingCents: number;
+  paidCents: number;
+  minCents: number;
+  holdDays: number;
+  nextPayoutAt: number;
+  history: { at: number; amountCents: number; orders: number; state: "paid" | "sending" }[];
 }
 
 export interface ShopStats {
@@ -67,6 +81,7 @@ export interface MyShop {
   link?: string;
   qrUrl?: string;
   stats?: ShopStats;
+  payouts?: ShopPayouts;
 }
 
 export interface ShopForm {
@@ -192,4 +207,10 @@ export const payApi = {
   /** Sign up, or update details. The code is only read the first time. */
   saveShop: (token: string, form: ShopForm) =>
     call<MyShop>("/shop", { token, method: "POST", body: form }),
+  /** A Stripe-hosted bank setup link. Stripe sends the shop back to returnUrl?connect=done|retry. */
+  connectBank: (token: string, returnUrl: string) =>
+    call<{ url: string }>("/shop/payouts/connect", { token, method: "POST", body: { returnUrl } }),
+  /** A one-time sign-in to the shop's own Stripe payouts page. */
+  payoutsDashboard: (token: string) =>
+    call<{ url: string }>("/shop/payouts/dashboard", { token, method: "POST" }),
 };

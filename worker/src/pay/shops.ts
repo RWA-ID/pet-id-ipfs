@@ -12,9 +12,10 @@
  * it is refunded or revoked, because those move it out of EARNING_STATUSES.
  */
 import {
-  EARNING_STATUSES, ON_THE_WAY_STATUSES, publicPartner, type OrderRow, type PartnerRow,
+  EARNING_STATUSES, ON_THE_WAY_STATUSES, publicPartner, sqlList, type OrderRow, type PartnerRow,
 } from "./db";
 import type { Env } from "./env";
+import { payoutSummary, refreshConnectStatus } from "./payouts";
 import { qrPng } from "./qr";
 import type { Session } from "./session";
 import { cleanText, json, normalizeShopCode, readJson } from "./util";
@@ -73,21 +74,19 @@ export async function handleShopQr(req: Request, env: Env, code: string) {
 
 // ─── The signed-in shop ───────────────────────────────────────────────────────
 
-const inList = (xs: readonly string[]) => xs.map((s) => `'${s}'`).join(", ");
-
 async function shopStats(env: Env, code: string) {
   const totals = await env.DB.prepare(
     `SELECT
-       COALESCE(SUM(CASE WHEN status IN (${inList(EARNING_STATUSES)}) THEN 1 ELSE 0 END), 0) AS registrations,
-       COALESCE(SUM(CASE WHEN status IN (${inList(EARNING_STATUSES)}) THEN commission_cents ELSE 0 END), 0) AS earned_cents,
-       COALESCE(SUM(CASE WHEN status IN (${inList(ON_THE_WAY_STATUSES)}) THEN 1 ELSE 0 END), 0) AS on_the_way
+       COALESCE(SUM(CASE WHEN status IN (${sqlList(EARNING_STATUSES)}) THEN 1 ELSE 0 END), 0) AS registrations,
+       COALESCE(SUM(CASE WHEN status IN (${sqlList(EARNING_STATUSES)}) THEN commission_cents ELSE 0 END), 0) AS earned_cents,
+       COALESCE(SUM(CASE WHEN status IN (${sqlList(ON_THE_WAY_STATUSES)}) THEN 1 ELSE 0 END), 0) AS on_the_way
      FROM orders WHERE partner_code = ?`,
   ).bind(code).first<{ registrations: number; earned_cents: number; on_the_way: number }>();
 
   // No customer details: a shop sees that a registration happened, not whose.
   const { results } = await env.DB.prepare(
     `SELECT status, commission_cents, created_at FROM orders
-     WHERE partner_code = ? AND status IN (${inList([...EARNING_STATUSES, ...ON_THE_WAY_STATUSES])})
+     WHERE partner_code = ? AND status IN (${sqlList([...EARNING_STATUSES, ...ON_THE_WAY_STATUSES])})
      ORDER BY created_at DESC LIMIT 25`,
   ).bind(code).all<Pick<OrderRow, "status" | "commission_cents" | "created_at">>();
 
@@ -103,15 +102,18 @@ async function shopStats(env: Env, code: string) {
   };
 }
 
-/** GET /shop: this account's shop and its numbers, or { shop: null } before sign-up. */
+/** GET /shop: this account's shop, its numbers and its payouts, or { shop: null } before sign-up. */
 export async function handleGetMyShop(env: Env, user: Session, cors: Cors) {
-  const p = await env.DB.prepare("SELECT * FROM partners WHERE user_sub = ?").bind(user.sub).first<PartnerRow>();
+  let p = await env.DB.prepare("SELECT * FROM partners WHERE user_sub = ?").bind(user.sub).first<PartnerRow>();
   if (!p) return json({ shop: null }, 200, cors);
+  // Mid-onboarding, the shop lands back here from Stripe: ask Stripe how it went.
+  if (p.stripe_account_id && !p.payouts_enabled) p = await refreshConnectStatus(env, p);
   return json({
     shop: publicPartner(p),
     link: shopLink(env, p.code),
     qrUrl: `${env.PUBLIC_URL}/shops/${p.code}/qr.png`,
     stats: await shopStats(env, p.code),
+    payouts: await payoutSummary(env, p),
   }, 200, cors);
 }
 
@@ -172,8 +174,8 @@ export async function handleAdminShops(req: Request, env: Env, url: URL): Promis
   if (req.method === "GET" && url.pathname === "/admin/shops") {
     const { results } = await env.DB.prepare(
       `SELECT p.*,
-         (SELECT COUNT(*) FROM orders o WHERE o.partner_code = p.code AND o.status IN (${inList(EARNING_STATUSES)})) AS registrations,
-         (SELECT COALESCE(SUM(o.commission_cents), 0) FROM orders o WHERE o.partner_code = p.code AND o.status IN (${inList(EARNING_STATUSES)})) AS earned_cents
+         (SELECT COUNT(*) FROM orders o WHERE o.partner_code = p.code AND o.status IN (${sqlList(EARNING_STATUSES)})) AS registrations,
+         (SELECT COALESCE(SUM(o.commission_cents), 0) FROM orders o WHERE o.partner_code = p.code AND o.status IN (${sqlList(EARNING_STATUSES)})) AS earned_cents
        FROM partners p ORDER BY p.created_at DESC LIMIT 500`,
     ).all();
     return json({ shops: results });

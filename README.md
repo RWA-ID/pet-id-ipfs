@@ -147,12 +147,22 @@ A shop signs up on **`/shops/`** (same sign-in as buyers), picks a code, and pri
 - An order **earns** once it's `minted` (or later); `paid`/`minting` is "on the way"; refunded and revoked orders drop out on their own.
 - New shops get `SHOP_COMMISSION_CENTS` (wrangler.pay.toml); the site displays `SHOP_COMMISSION_CENTS` in `lib/pay.ts`. Change both.
 - Admin: `GET /admin/shops` (totals per shop), `POST /admin/shops/<code>/pause|activate`.
-- **Payouts aren't built yet.** `partners.stripe_account_id` is reserved for Stripe Connect.
 - Separate from the on-chain reseller program on `/partner/`, which is wallet-based and pays out through the registrar.
+
+**Payouts** ([`payouts.ts`](worker/src/pay/payouts.ts)) go through **Stripe Connect**. A shop clicks "Connect my bank" on its dashboard; the worker creates a **US Express account** (transfers only) and sends it to Stripe's hosted onboarding, which collects the bank, identity and tax details. We never see them. On the **1st of each month, 15:00 UTC** (the daily second cron in `wrangler.pay.toml`, `PAYOUT_CRON`) each connected shop gets one transfer:
+
+- **credits**: orders that earn and are older than `SHOP_PAYOUT_HOLD_DAYS` (30), not yet paid → `orders.payout_id`
+- **debits**: orders paid out earlier that were since refunded or revoked → `orders.clawback_payout_id`
+- sent only if credits − debits ≥ `SHOP_PAYOUT_MIN_CENTS` ($20); otherwise nothing is marked and it rolls over.
+
+The marks land in one D1 batch before Stripe is called, under a `payouts` lease, and the transfer's idempotency key is the payout id. A refused transfer (empty balance, say) stays `failed` and the same cron retries it **every day** under the same key, so it can't pay twice; after 5 attempts it waits for `POST /admin/payouts/<id>/retry`. Shops that are owed ≥ $20 with no bank connected get a reminder email, at most every 20 days. Admin: `GET /admin/payouts`, `POST /admin/payouts/run`, `POST /admin/payouts/<id>/retry`.
+
+**Prerequisite:** Connect must be enabled on the Stripe account ([dashboard.stripe.com/connect](https://dashboard.stripe.com/connect)), in test and live mode separately. Until it is, "Connect my bank" fails and the admin is emailed. Transfers draw on the platform's **available** balance. With Stripe's default **daily** payouts to our own bank that balance is near zero on the 1st, and every shop transfer would fail. Set our own payout schedule to **monthly, on the 2nd** (Dashboard → Settings → Payouts), so the 1st's run has the month's money to send. A transfer that still fails is retried daily.
 
 ```bash
 cd worker
 node scripts/shops-e2e.mjs      # 44 checks: sign-up, QR, attribution, self-referral, pause, earnings
+node scripts/payouts-e2e.mjs    # onboarding, holds, minimum, clawbacks, refused transfers, cron (local stand-in for Stripe)
 ```
 
 ---
@@ -218,7 +228,8 @@ petid-eth-ipfs/
 │   ├── src/pay/                petid-pay — Google sign-in, Stripe checkout, custody, claims
 │   ├── migrations/pay/         D1 schema for orders (wrangler.pay.toml)
 │   ├── scripts/pay-e2e.mjs     end-to-end test: anvil fork + wrangler dev + signed webhooks
-│   └── scripts/shops-e2e.mjs   end-to-end test: shop sign-up and referral attribution
+│   ├── scripts/shops-e2e.mjs   end-to-end test: shop sign-up and referral attribution
+│   └── scripts/payouts-e2e.mjs end-to-end test: Stripe Connect payouts against a local stand-in
 ├── scripts/
 │   ├── deploy-ipfs.mjs         uploads out/ to Pinata as one directory, prints CID
 │   ├── og/card.html + render.sh share cards → public/og/*.png (headless Chrome + sips)

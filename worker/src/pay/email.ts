@@ -1,5 +1,5 @@
 import type { Env } from "./env";
-import type { OrderRow } from "./db";
+import type { OrderRow, PartnerRow, PayoutRow } from "./db";
 import { short } from "./util";
 
 /** Returns an error string instead of throwing: a failed email must never fail an order. */
@@ -403,4 +403,85 @@ export async function emailRefunded(env: Env, o: OrderRow) {
 
   return sendEmail(env, o.email, `Refund for ${nameOf(o)}`, text, shell(env,
     `Your card has been refunded in full.`, sections));
+}
+
+// ─── pet-shop emails ─────────────────────────────────────────────────────────
+
+const shopsUrl = (env: Env) => `${env.SITE_URL}/shops/`;
+const SHOP_REASON = "You're receiving this because your shop is signed up for PetID flyers.";
+
+/** A shop's earnings are due and it has no bank connected. Sent at most every 20 days. */
+export function emailShopConnectBank(env: Env, p: PartnerRow, owedCents: number) {
+  const text = [
+    `Hi ${p.contact_name},`,
+    "",
+    `${p.business_name} has earned ${money(owedCents)} from PetID registrations, and it's ready to be paid.`,
+    "",
+    "To receive it, connect your bank in your PetID shop dashboard. It takes about 5 minutes on Stripe's secure page, and PetID never sees your bank details:",
+    shopsUrl(env),
+    "",
+    "Your earnings are safe in the meantime: they'll go out on the first payout after your bank is connected.",
+  ].join("\n");
+
+  const sections = `
+  <tr><td style="background-color:${C.card};border:1px solid ${C.line};border-radius:20px 20px 0 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr><td align="center" class="pad h1" style="padding:44px 44px 0 44px;font-family:${SERIF};font-size:34px;line-height:40px;color:${C.ink};mso-line-height-rule:exactly;">
+        You have ${money(owedCents)}<br>waiting for you.
+      </td></tr>
+      <tr><td align="center" class="pad" style="padding:16px 52px 0 52px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.body};mso-line-height-rule:exactly;">
+        Hi ${esc(p.contact_name)}, customers have been registering their pets with <strong style="color:${C.ink};">${esc(p.business_name)}</strong>'s flyer.
+        Connect your bank so we can send you what you've earned. It takes about 5 minutes on Stripe's secure page.
+      </td></tr>
+      <tr><td align="center" style="padding:28px 44px 12px 44px;">${button(shopsUrl(env), "Connect my bank")}</td></tr>
+      <tr><td align="center" class="pad" style="padding:0 52px 40px 52px;font-family:${SANS};font-size:13px;line-height:20px;color:${C.muted};mso-line-height-rule:exactly;">
+        PetID never sees your bank details. Your earnings stay safe until you connect.
+      </td></tr>
+    </table>
+  </td></tr>
+  ${helpStrip(true)}`;
+
+  return sendEmail(env, p.email, `${money(owedCents)} from PetID is ready for ${p.business_name}`, text,
+    shell(env, `Connect your bank to receive ${money(owedCents)}.`, sections, SHOP_REASON));
+}
+
+/** A shop's monthly transfer went through. */
+export function emailShopPaid(env: Env, p: PartnerRow, x: PayoutRow) {
+  const regs = `${x.orders_count} registration${x.orders_count === 1 ? "" : "s"}`;
+  const adjusted = x.debit_cents > 0
+    ? ` That's ${money(x.credit_cents)} for ${regs}, less ${money(x.debit_cents)} for earlier registrations that were refunded.`
+    : ` That's for ${regs} from your flyer.`;
+  const text = [
+    `Hi ${p.contact_name},`,
+    "",
+    `We've sent ${money(x.amount_cents)} to ${p.business_name}'s Stripe account.${adjusted}`,
+    "",
+    "Stripe moves it to your bank on its usual schedule, normally within a few business days. Your dashboard has the details:",
+    shopsUrl(env),
+    "",
+    "Thank you for putting PetID on your counter.",
+  ].join("\n");
+
+  const sections = `
+  <tr><td style="background-color:${C.card};border:1px solid ${C.line};border-radius:20px 20px 0 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr><td align="center" class="pad" style="padding:44px 44px 0 44px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="background-color:${C.sandDeep};border-radius:999px;padding:7px 16px;font-family:${SANS};font-size:12px;font-weight:bold;color:${C.amberInk};letter-spacing:1.2px;text-transform:uppercase;mso-line-height-rule:exactly;line-height:16px;">Payout sent</td>
+        </tr></table>
+      </td></tr>
+      <tr><td align="center" class="pad h1" style="padding:22px 44px 0 44px;font-family:${SERIF};font-size:44px;line-height:50px;color:${C.ink};mso-line-height-rule:exactly;">
+        ${money(x.amount_cents)}
+      </td></tr>
+      <tr><td align="center" class="pad" style="padding:16px 52px 0 52px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.body};mso-line-height-rule:exactly;">
+        Hi ${esc(p.contact_name)}, we've sent this to <strong style="color:${C.ink};">${esc(p.business_name)}</strong>'s Stripe account.${esc(adjusted)}
+        Stripe moves it to your bank on its usual schedule, normally within a few business days.
+      </td></tr>
+      <tr><td align="center" style="padding:28px 44px 40px 44px;">${button(shopsUrl(env), "See my dashboard")}</td></tr>
+    </table>
+  </td></tr>
+  ${helpStrip(true)}`;
+
+  return sendEmail(env, p.email, `PetID sent ${p.business_name} ${money(x.amount_cents)}`, text,
+    shell(env, `${money(x.amount_cents)} is on its way to your bank.`, sections, SHOP_REASON));
 }
