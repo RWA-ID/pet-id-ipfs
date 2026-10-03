@@ -20,6 +20,7 @@ const ROUTES = [
   { file: "index.html",              path: "/",          card: "home",     index: true },
   { file: "register/index.html",     path: "/register/", card: "register", index: true },
   { file: "partner/index.html",      path: "/partner/",  card: "partner",  index: true },
+  { file: "shops/index.html",        path: "/shops/",    card: "partner",  index: true },
   // /apply/ is a redirect to /partner/, so it deliberately points its canonical
   // and og:url at the destination and is noindex.
   { file: "apply/index.html",        path: "/partner/",  card: "apply",    index: false },
