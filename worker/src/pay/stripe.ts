@@ -95,44 +95,84 @@ export function refundPaymentIntent(env: Env, paymentIntent: string, orderId: st
 
 // ─── Connect: paying pet shops ───────────────────────────────────────────────
 
-export interface ConnectedAccount {
-  id: string;
-  payouts_enabled: boolean;
-  details_submitted: boolean;
-  capabilities?: { transfers?: string };
-  requirements?: { currently_due?: string[]; disabled_reason?: string | null };
+/**
+ * Stripe's v2 API version. v2 endpoints refuse a request without one, and take
+ * JSON rather than form bodies. Pinned rather than "latest": a new version can
+ * rename fields, as this one already dropped the account link's
+ * `configurations` (the account's own configuration decides now).
+ */
+const V2_VERSION = "2026-09-30.endive";
+
+async function callV2<T>(
+  env: Env, method: "GET" | "POST", path: string, body?: unknown, idempotencyKey?: string,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+    "Stripe-Version": V2_VERSION,
+    "Content-Type": "application/json",
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  const base = (env.STRIPE_API_BASE ?? "https://api.stripe.com").replace(/\/+$/, "");
+  const res = await fetch(`${base}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const data = (await res.json()) as { error?: { code?: string; message?: string } };
+  if (!res.ok) {
+    throw new Error(`stripe ${res.status} ${data.error?.code ?? ""}: ${(data.error?.message ?? "").slice(0, 200)}`);
+  }
+  return data as T;
 }
 
+/** The parts of a v2 Account we read. */
+export interface ConnectedAccount {
+  id: string;
+  configuration?: {
+    recipient?: { capabilities?: { stripe_balance?: { stripe_transfers?: { status?: string } } } };
+  };
+  requirements?: { summary?: { minimum_deadline?: { status?: string } } };
+}
+
+/** "active" once Stripe will accept transfers to this account. */
+export const transfersStatus = (a: ConnectedAccount) =>
+  a.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status;
+
 /**
- * An Express account for a shop: Stripe hosts its onboarding, identity checks,
- * bank details, tax forms and payout dashboard. Transfers only — the shop never
- * takes card payments itself, it receives a share of ours.
+ * A shop's account, created with Accounts v2 (Stripe refuses v1 creation for
+ * new Connect platforms). A "recipient" that can only receive transfers into
+ * its Stripe balance: the shop never takes card payments itself, it receives a
+ * share of ours. Express dashboard, so Stripe hosts its onboarding, identity
+ * checks, bank details, tax forms and payout page. We collect the fees and
+ * carry the losses, as the platform taking the customer's money.
  *
- * US only for now: our platform account is US, and a cross-border "recipient"
- * account is a different agreement that not every country supports.
+ * US only for now: our platform account is US, and a cross-border recipient
+ * is a different agreement that not every country supports.
  */
 export function createConnectedAccount(
   env: Env, o: { partnerCode: string; email: string; businessName: string },
 ) {
-  return call<ConnectedAccount>(env, "/accounts", {
-    type: "express",
-    country: "US",
-    email: o.email,
-    capabilities: { transfers: { requested: "true" } },
-    business_profile: { name: o.businessName, product_description: "Pet shop referring PetID registrations" },
+  return callV2<ConnectedAccount>(env, "POST", "/v2/core/accounts", {
+    display_name: o.businessName,
+    contact_email: o.email,
+    identity: { country: "us" },
+    dashboard: "express",
+    defaults: { responsibilities: { fees_collector: "application", losses_collector: "application" } },
+    configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
     metadata: { partner_code: o.partnerCode },
   }, `connect-account-${o.partnerCode}`);
 }
 
 export const getConnectedAccount = (env: Env, id: string) =>
-  call<ConnectedAccount>(env, `/accounts/${encodeURIComponent(id)}`, {}, undefined, "GET");
+  callV2<ConnectedAccount>(env, "GET",
+    `/v2/core/accounts/${encodeURIComponent(id)}?include=configuration.recipient&include=requirements`);
 
 /** A one-time link into Stripe's hosted onboarding. Expires in minutes; make a new one per click. */
 export function createOnboardingLink(env: Env, account: string, returnUrl: string, refreshUrl: string) {
-  return call<{ url: string }>(env, "/account_links", {
-    account, type: "account_onboarding", return_url: returnUrl, refresh_url: refreshUrl,
+  return callV2<{ url: string }>(env, "POST", "/v2/core/account_links", {
+    account,
+    use_case: { type: "account_onboarding", account_onboarding: { return_url: returnUrl, refresh_url: refreshUrl } },
   });
 }
+
+// The dashboard link and transfers stay on v1: Stripe accepts v2 accounts for both
+// (checked in test mode), and a v1 transfer to a v2 recipient is the documented path.
 
 /** A one-time sign-in to the shop's Stripe Express dashboard: its payouts, bank and tax forms. */
 export const createDashboardLink = (env: Env, account: string) =>

@@ -1,8 +1,8 @@
 /**
  * Paying pet shops their referral commissions, through Stripe Connect.
  *
- * A shop connects a bank from its /shops/ dashboard: we create a US Express
- * account and send the shop to Stripe's hosted onboarding, which collects the
+ * A shop connects a bank from its /shops/ dashboard: we create a US recipient
+ * account (Accounts v2, Express dashboard) and send the shop to Stripe's hosted onboarding, which collects the
  * bank, the identity checks and the tax details. We never see any of it.
  *
  * runPayouts() runs daily at 15:00 UTC. Every day it finishes any transfer
@@ -30,6 +30,7 @@ import type { Env } from "./env";
 import type { Session } from "./session";
 import {
   createConnectedAccount, createDashboardLink, createOnboardingLink, createTransfer, getConnectedAccount,
+  transfersStatus,
 } from "./stripe";
 import { allowedOrigins, json, readJson, short } from "./util";
 
@@ -72,7 +73,7 @@ export async function refreshConnectStatus(env: Env, p: PartnerRow): Promise<Par
   if (!p.stripe_account_id) return p;
   try {
     const a = await getConnectedAccount(env, p.stripe_account_id);
-    const enabled = a.payouts_enabled && a.capabilities?.transfers === "active" ? 1 : 0;
+    const enabled = transfersStatus(a) === "active" ? 1 : 0;
     if (enabled !== p.payouts_enabled) {
       await env.DB.prepare("UPDATE partners SET payouts_enabled = ?, updated_at = ? WHERE code = ?")
         .bind(enabled, Date.now(), p.code).run();

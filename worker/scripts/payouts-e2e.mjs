@@ -101,6 +101,7 @@ const stripe = {
   refuseTo: new Set(),      // destinations whose transfers fail
   links: 0,
   loginLinks: 0,
+  v2Versions: new Set(),
 };
 const mailbox = [];
 
@@ -121,33 +122,48 @@ function startMock() {
           return send(200, { id: `mail-${randomUUID()}` });
         }
         if (req.headers.authorization !== "Bearer sk_test_payouts_e2e") return send(401, { error: { message: "bad key" } });
-        const params = Object.fromEntries(new URLSearchParams(raw));
+        // v2 endpoints take JSON and must name an API version; v1 takes a form body.
+        const isV2 = url.pathname.startsWith("/v2/");
+        if (isV2 && !req.headers["stripe-version"]) return send(400, { error: { message: "You did not provide an API version." } });
+        if (isV2) stripe.v2Versions.add(req.headers["stripe-version"]);
+        const params = isV2 ? JSON.parse(raw || "{}") : Object.fromEntries(new URLSearchParams(raw));
         const key = req.headers["idempotency-key"];
         if (key && stripe.idem.has(key)) return send(200, stripe.idem.get(key));
         const remember = (body) => { if (key) stripe.idem.set(key, body); return send(200, body); };
+        // The v2 Account shape, as GET /v2/core/accounts/:id?include=configuration.recipient returns it.
         const account = (id) => {
-          const a = stripe.accounts.get(id);
-          return { id, payouts_enabled: a.payouts_enabled, details_submitted: a.payouts_enabled,
-            capabilities: { transfers: a.payouts_enabled ? "active" : "inactive" } };
+          const on = stripe.accounts.get(id).payouts_enabled;
+          return { id, object: "v2.core.account",
+            configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { status: on ? "active" : "restricted" } } } } },
+            requirements: { summary: { minimum_deadline: { status: on ? null : "past_due" } } } };
         };
 
         let m;
         if (req.method === "POST" && url.pathname === "/v1/accounts") {
+          return send(400, { error: { message: "Stripe no longer recommends Accounts v1 for new Connect integrations." } });
+        }
+        if (req.method === "POST" && url.pathname === "/v2/core/accounts") {
           const id = `acct_mock${stripe.accounts.size + 1}`;
           stripe.accounts.set(id, { params, payouts_enabled: false });
           return remember(account(id));
         }
-        if ((m = url.pathname.match(/^\/v1\/accounts\/(acct_\w+)$/)) && req.method === "GET") {
+        if ((m = url.pathname.match(/^\/v2\/core\/accounts\/(acct_\w+)$/)) && req.method === "GET") {
+          if (!url.searchParams.getAll("include").includes("configuration.recipient")) {
+            return send(200, { id: m[1], object: "v2.core.account" }); // v2 leaves out what wasn't asked for
+          }
           return stripe.accounts.has(m[1]) ? send(200, account(m[1])) : send(404, { error: { message: "no such account" } });
         }
         if ((m = url.pathname.match(/^\/v1\/accounts\/(acct_\w+)\/login_links$/)) && req.method === "POST") {
           stripe.loginLinks++;
           return send(200, { url: `https://connect.stripe.test/express/${m[1]}` });
         }
-        if (req.method === "POST" && url.pathname === "/v1/account_links") {
+        if (req.method === "POST" && url.pathname === "/v2/core/account_links") {
+          if (params.use_case?.account_onboarding?.configurations) {
+            return send(400, { error: { message: "'use_case.account_onboarding.configurations: Unknown field.'" } });
+          }
           stripe.links++;
           stripe.lastLink = params;
-          return send(200, { url: `https://connect.stripe.test/setup/${params.account}` });
+          return send(200, { object: "v2.core.account_link", url: `https://connect.stripe.test/setup/${params.account}` });
         }
         if (req.method === "POST" && url.pathname === "/v1/transfers") {
           stripe.attempts.push({ ...params, key });
@@ -253,10 +269,18 @@ async function main() {
   const link = await api("/shop/payouts/connect", { token: a.token, method: "POST", body: { returnUrl: `${SITE}?connect=done` } });
   check(link.status === 200 && /connect\.stripe\.test\/setup\/acct_mock1$/.test(link.body?.url ?? ""), `connect → Stripe onboarding link (${link.body?.url ?? link.body?.error})`);
   const created = stripe.accounts.get("acct_mock1")?.params ?? {};
-  check(created.type === "express" && created.country === "US", "creates a US Express account");
-  check(created["capabilities[transfers][requested]"] === "true" && !("capabilities[card_payments][requested]" in created), "asks for transfers only");
-  check(created.email === a.email && created["metadata[partner_code]"] === "alpha", "account carries the shop's email and code");
-  check(stripe.lastLink?.return_url === `${SITE}?connect=done` && stripe.lastLink?.refresh_url === `${SITE}?connect=retry`,
+  check(!("type" in created) && created.identity?.country === "us" && created.dashboard === "express",
+    "creates a v2 US account with the Express dashboard, no top-level type");
+  const caps = created.configuration ?? {};
+  check(caps.recipient?.capabilities?.stripe_balance?.stripe_transfers?.requested === true && Object.keys(caps).join() === "recipient",
+    "configured as a recipient that can only receive transfers");
+  check(created.defaults?.responsibilities?.fees_collector === "application" && created.defaults?.responsibilities?.losses_collector === "application",
+    "the platform collects fees and carries losses");
+  check(created.contact_email === a.email && created.display_name === "Shop alpha" && created.metadata?.partner_code === "alpha",
+    "account carries the shop's name, email and code");
+  check(stripe.v2Versions.size === 1 && /^\d{4}-\d{2}-\d{2}\.\w+$/.test([...stripe.v2Versions][0]), `v2 calls pin one API version (${[...stripe.v2Versions]})`);
+  const ao = stripe.lastLink?.use_case?.account_onboarding ?? {};
+  check(stripe.lastLink?.use_case?.type === "account_onboarding" && ao.return_url === `${SITE}?connect=done` && ao.refresh_url === `${SITE}?connect=retry`,
     "Stripe returns the shop to /shops/ (query stripped, then ?connect=done|retry)");
 
   await api("/shop/payouts/connect", { token: a.token, method: "POST", body: { returnUrl: SITE } });
