@@ -388,6 +388,10 @@ export default function PartnerPage() {
                 </button>
                 <a href="#how" className="pt-btn pt-btn-outline">See how it works</a>
               </div>
+              <div className="pt-note" style={{marginTop:"20px",maxWidth:"52ch"}}>
+                <b>No crypto, no wallet?</b> Put a free PetID flyer on your counter instead and earn on every card registration it brings in.{" "}
+                <Link href="/shops/" style={{color:"var(--amber-dark)",fontWeight:600}}>Get a shop flyer →</Link>
+              </div>
               <div className="pt-trust">
                 <span><span className="pt-check">✓</span> Free to join</span>
                 <span><span className="pt-check">✓</span> Non-custodial</span>

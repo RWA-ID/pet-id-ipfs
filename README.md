@@ -140,6 +140,21 @@ FORK_URL=<mainnet rpc> node scripts/pay-e2e.mjs
 
 anvil forks mainnet, `wrangler dev` runs the worker against a local D1, and the script plays Stripe with signed webhooks: 33 checks covering forged signatures, replayed webhooks, per-account privacy, wrong-wallet claims, permanent fuses on release, and refund → revoke → name for sale again.
 
+### Pet-shop referrals (card orders)
+
+A shop signs up on **`/shops/`** (same sign-in as buyers), picks a code, and prints a flyer whose QR opens the site with `?ref=<code>`. An inline script in `app/layout.tsx` remembers the code for 30 days (`lib/ref.ts`); the register page sends it with the checkout, and customers who didn't scan can type it on the review step. The worker ([`shops.ts`](worker/src/pay/shops.ts)) stamps the order with `partner_code` and the shop's `commission_cents` **when checkout opens**, so a later rate change never rewrites past orders. Unknown, paused and self-referred codes are ignored, never an error.
+
+- An order **earns** once it's `minted` (or later); `paid`/`minting` is "on the way"; refunded and revoked orders drop out on their own.
+- New shops get `SHOP_COMMISSION_CENTS` (wrangler.pay.toml); the site displays `SHOP_COMMISSION_CENTS` in `lib/pay.ts`. Change both.
+- Admin: `GET /admin/shops` (totals per shop), `POST /admin/shops/<code>/pause|activate`.
+- **Payouts aren't built yet.** `partners.stripe_account_id` is reserved for Stripe Connect.
+- Separate from the on-chain reseller program on `/partner/`, which is wallet-based and pays out through the registrar.
+
+```bash
+cd worker
+node scripts/shops-e2e.mjs      # 44 checks: sign-up, QR, attribution, self-referral, pause, earnings
+```
+
 ---
 
 ## Contracts (Ethereum mainnet)
@@ -176,6 +191,7 @@ petid-eth-ipfs/
 │   │                           steps: pay by card or wallet → name → template → details
 │   │                                  → review → pay/mint, then the Stripe return screen
 │   │                           partner mode via ?partner=0x… (card checkout is hidden there)
+│   ├── shops/page.tsx          pet-shop referrals: pitch → sign up → flyer + earnings, one route
 │   ├── partner/page.tsx        partner program: pitch → apply → dashboard, one route
 │   │   partner/layout.tsx      route metadata + share card (page.tsx is a client component)
 │   ├── apply/page.tsx          shareable shortcut; relative meta-refresh to ../partner/
@@ -201,7 +217,8 @@ petid-eth-ipfs/
 │   ├── src/index.ts            petid-apply — partner applications → KV + email, IPFS upload proxy
 │   ├── src/pay/                petid-pay — Google sign-in, Stripe checkout, custody, claims
 │   ├── migrations/pay/         D1 schema for orders (wrangler.pay.toml)
-│   └── scripts/pay-e2e.mjs     end-to-end test: anvil fork + wrangler dev + signed webhooks
+│   ├── scripts/pay-e2e.mjs     end-to-end test: anvil fork + wrangler dev + signed webhooks
+│   └── scripts/shops-e2e.mjs   end-to-end test: shop sign-up and referral attribution
 ├── scripts/
 │   ├── deploy-ipfs.mjs         uploads out/ to Pinata as one directory, prints CID
 │   ├── og/card.html + render.sh share cards → public/og/*.png (headless Chrome + sips)

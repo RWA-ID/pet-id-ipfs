@@ -24,8 +24,49 @@ export interface OrderRow {
   claim_tx: string | null;
   error: string | null;
   attempts: number;
+  /** The shop whose flyer or code brought this order in, and what it earns for it. */
+  partner_code: string | null;
+  commission_cents: number | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface PartnerRow {
+  code: string;
+  user_sub: string;
+  business_name: string;
+  contact_name: string;
+  email: string;
+  phone: string | null;
+  address: string;
+  commission_cents: number;
+  status: "active" | "paused";
+  stripe_account_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * Order statuses that count toward a shop's earnings. Paid-but-not-yet-minted
+ * orders are "on the way"; refunded, revoked and abandoned ones never earn.
+ */
+export const EARNING_STATUSES = ["minted", "claim_requested", "claiming", "claimed"] as const;
+export const ON_THE_WAY_STATUSES = ["paid", "minting"] as const;
+
+/** What a shop sees about itself. */
+export function publicPartner(p: PartnerRow) {
+  return {
+    code: p.code,
+    businessName: p.business_name,
+    contactName: p.contact_name,
+    email: p.email,
+    phone: p.phone,
+    address: p.address,
+    commissionCents: p.commission_cents,
+    status: p.status,
+    payoutsConnected: !!p.stripe_account_id,
+    createdAt: p.created_at,
+  };
 }
 
 const UPDATABLE = new Set<keyof OrderRow>([

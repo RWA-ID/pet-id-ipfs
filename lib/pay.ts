@@ -18,6 +18,8 @@ export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 export const cardPaymentsEnabled = !!PAY_API;
 /** Display only. The worker charges its own PRICE_CENTS (worker/wrangler.pay.toml). */
 export const CARD_PRICE_CENTS = 1999;
+/** Display only: what a pet shop earns per card registration. The worker's SHOP_COMMISSION_CENTS is what's recorded. */
+export const SHOP_COMMISSION_CENTS = 500;
 
 export type OrderStatus =
   | "pending" | "paid" | "minting" | "minted" | "claim_requested" | "claiming" | "claimed"
@@ -35,6 +37,44 @@ export interface PayOrder {
   claimTx: string | null;
   claimFailed: boolean;
   createdAt: number;
+}
+
+/** A pet shop, as its own account sees it (worker/src/pay/db.ts publicPartner). */
+export interface Shop {
+  code: string;
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone: string | null;
+  address: string;
+  commissionCents: number;
+  status: "active" | "paused";
+  payoutsConnected: boolean;
+  createdAt: number;
+}
+
+export interface ShopStats {
+  /** Registrations that have gone through and earn the commission. */
+  registrations: number;
+  earnedCents: number;
+  /** Paid, still being registered. They join `registrations` within minutes. */
+  onTheWay: number;
+  recent: { at: number; commissionCents: number; state: "earned" | "processing" }[];
+}
+
+export interface MyShop {
+  shop: Shop | null;
+  link?: string;
+  qrUrl?: string;
+  stats?: ShopStats;
+}
+
+export interface ShopForm {
+  code: string;
+  businessName: string;
+  contactName: string;
+  phone: string;
+  address: string;
 }
 
 export interface PayUser {
@@ -132,7 +172,11 @@ export const payApi = {
   checkout: (
     token: string,
     // petName and photoUrl are for the receipt email only; the worker validates both.
-    body: { parent: string; label: string; contenthash: string; returnUrl: string; petName?: string; photoUrl?: string },
+    // ref is the pet shop that sent the buyer (lib/ref.ts); an unknown one is ignored.
+    body: {
+      parent: string; label: string; contenthash: string; returnUrl: string;
+      petName?: string; photoUrl?: string; ref?: string;
+    },
   ) =>
     call<{ url: string; orderId: string }>("/checkout", { token, method: "POST", body }),
   order: (token: string, id: string) =>
@@ -141,4 +185,11 @@ export const payApi = {
     call<{ message: string }>(`/orders/${id}/claim-message?to=${to}`, { token }),
   claim: (token: string, id: string, to: string, signature: string) =>
     call<{ order: PayOrder }>(`/orders/${id}/claim`, { token, method: "POST", body: { to, signature } }),
+  /** A shop's display name by code, for "Referred by …" on checkout. 404s for an unknown or paused code. */
+  shopLookup: (code: string) =>
+    call<{ shop: { code: string; businessName: string } }>(`/shops/${encodeURIComponent(code)}`),
+  myShop: (token: string) => call<MyShop>("/shop", { token }),
+  /** Sign up, or update details. The code is only read the first time. */
+  saveShop: (token: string, form: ShopForm) =>
+    call<MyShop>("/shop", { token, method: "POST", body: form }),
 };

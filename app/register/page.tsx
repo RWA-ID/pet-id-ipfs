@@ -26,6 +26,7 @@ import type { Template } from "@/types/templates";
 import { SignInPanel } from "@/components/SignInPanel";
 import { usePaySession } from "@/hooks/usePaySession";
 import { CARD_PRICE_CENTS, cardPaymentsEnabled, payApi, type PayOrder } from "@/lib/pay";
+import { loadRef, normalizeShopCode, saveRef } from "@/lib/ref";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 type Namespace = "dogid.eth" | "catid.eth";
@@ -152,6 +153,30 @@ export default function RegisterWizard() {
   /** Registering usually takes under a minute; past that, reassure rather than spin. */
   const [slowRegistration, setSlowRegistration] = useState(false);
   const [returnNotice, setReturnNotice] = useState<"" | "canceled">("");
+
+  // ── the pet shop that sent this buyer (card orders only; see lib/ref.ts) ──
+  // From the flyer QR's ?ref=, remembered across visits, or typed on the review step.
+  const [shopCode, setShopCode] = useState("");
+  const [shopName, setShopName] = useState<string | null>(null);
+  const [shopError, setShopError] = useState("");
+  const [shopEditing, setShopEditing] = useState(false);
+  const [debouncedShopCode] = useDebounce(shopCode, 400);
+  useEffect(() => {
+    const saved = loadRef();
+    if (saved) setShopCode(saved.toUpperCase());
+  }, []);
+  useEffect(() => {
+    setShopName(null);
+    setShopError("");
+    if (!cardPaymentsEnabled || !debouncedShopCode.trim()) return;
+    const code = normalizeShopCode(debouncedShopCode);
+    if (!code) { setShopError("Shop codes are 3–24 letters and numbers."); return; }
+    let stale = false;
+    payApi.shopLookup(code)
+      .then(({ shop }) => { if (!stale) { setShopName(shop.businessName); setShopEditing(false); saveRef(code); } })
+      .catch(() => { if (!stale) setShopError("We don't recognise that code. Check the flyer, or leave it blank."); });
+    return () => { stale = true; };
+  }, [debouncedShopCode]);
 
   const { address, isConnected } = useAccount();
   const { open: openConnectModal } = useAppKit();
@@ -422,6 +447,8 @@ export default function RegisterWizard() {
           photoUrl: photoCidUrl,
           // Where Stripe sends the buyer back. The worker only accepts our own hosts.
           returnUrl: window.location.href,
+          // Only a code the worker just confirmed. A mistyped one would be ignored anyway.
+          ref: shopName ? normalizeShopCode(shopCode) ?? undefined : undefined,
         });
         window.location.assign(url);
         return;
@@ -943,6 +970,38 @@ export default function RegisterWizard() {
                 <div style={{display:"flex",alignItems:"center",gap:"7px",fontSize:"12.5px",color:"#8A6B4E",paddingBottom:"4px"}}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
                   You&apos;ll pay on the secure Stripe checkout page — PetID never sees your card details.
+                </div>
+
+                {/* The shop whose flyer brought this buyer in. Optional, and it never changes the price. */}
+                <div style={{marginTop:"14px",background:"#FBF5EC",border:"1px dashed #E5D3B6",borderRadius:"12px",padding:"12px 14px",fontSize:"13.5px",color:"#5C3E25"}}>
+                  {shopName && !shopEditing ? (
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"10px"}}>
+                      <span>🐾 Referred by <strong style={{color:"#3D2817"}}>{shopName}</strong></span>
+                      <button type="button" onClick={() => setShopEditing(true)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontSize:"12.5px",color:"#8A6B4E",textDecoration:"underline",fontFamily:"inherit"}}>
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <label htmlFor="shop-code" style={{display:"block",fontWeight:600,color:"#3D2817",marginBottom:"6px"}}>
+                        Got a code from a pet shop? <span style={{fontWeight:400,color:"#8A6B4E"}}>(optional)</span>
+                      </label>
+                      <input
+                        id="shop-code"
+                        value={shopCode}
+                        onChange={(e) => setShopCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. PAWSCO"
+                        maxLength={24}
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                        style={{width:"100%",border:"1.5px solid #E5D3B6",borderRadius:"10px",padding:"10px 12px",fontSize:"15px",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.06em",background:"#FFFDF8",color:"#3D2817",outline:"none"}}
+                      />
+                      <div style={{fontSize:"12px",marginTop:"6px",color: shopError ? "#B3412E" : "#8A6B4E"}}>
+                        {shopError || (shopName ? <>✓ {shopName}</> : "It's printed on the flyer at the shop. Your price stays the same.")}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ) : (<>

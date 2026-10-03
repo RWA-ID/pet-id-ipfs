@@ -40,6 +40,10 @@ REGISTRAR_ADDRESS = "0xe189666820863F6e7c578c81eFd7ED9eAb24d1bb"
 # or the endpoint would be an open redirect.
 ALLOWED_ORIGINS = "https://petid.eth.link,https://petid.eth.limo,https://ipfs.onchain-id.id,http://localhost:3000"
 PRICE_CENTS = "1999"
+# What a pet shop earns per card registration from its flyer or code. Applies to
+# shops that sign up after a change; existing shops keep the rate on their row.
+# The site shows it from SHOP_COMMISSION_CENTS in lib/pay.ts — change both.
+SHOP_COMMISSION_CENTS = "500"
 # Mints wait (the order stays paid, the cron retries) while gas is above this.
 MAX_GAS_GWEI = "3"
 SITE_URL = "https://petid.eth.limo"

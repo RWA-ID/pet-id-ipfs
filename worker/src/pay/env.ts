@@ -6,6 +6,8 @@ export interface Env {
   REGISTRAR_ADDRESS: string;
   ALLOWED_ORIGINS: string;
   PRICE_CENTS: string;
+  /** What a new shop earns per card registration it refers. Copied onto the shop's row at sign-up. */
+  SHOP_COMMISSION_CENTS: string;
   MAX_GAS_GWEI: string;
   SITE_URL: string;
   /** This worker's own public origin. Emails link to /qr/<order>.png on it, and

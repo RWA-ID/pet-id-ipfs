@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { SITE, SITE_NAME, TWITTER } from "@/lib/seo";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
+import { REF_CAPTURE_SCRIPT } from "@/lib/ref";
 
 // metadataBase is what lets every page write `canonical` and `og:image` as
 // relative paths and still emit absolute URLs — share scrapers reject relative
@@ -71,6 +72,9 @@ gtag('js', new Date());
 gtag('config', '${GA_MEASUREMENT_ID}');`,
           }}
         />
+        {/* Remembers the pet shop whose flyer brought this visitor here (?ref=),
+            for the card checkout to credit. See lib/ref.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: REF_CAPTURE_SCRIPT }} />
         <Providers>{children}</Providers>
         <GoogleAnalytics />
       </body>

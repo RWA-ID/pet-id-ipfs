@@ -46,16 +46,21 @@ export interface CheckoutSession {
 
 export function createCheckoutSession(
   env: Env,
-  o: { orderId: string; name: string; email: string; amountCents: number; successUrl: string; cancelUrl: string },
+  o: {
+    orderId: string; name: string; email: string; amountCents: number; successUrl: string; cancelUrl: string;
+    /** The referring shop, if any. Only for reading the Stripe dashboard; the order row is the record. */
+    partnerCode?: string;
+  },
 ): Promise<CheckoutSession> {
+  const metadata = { order_id: o.orderId, partner: o.partnerCode };
   return call<CheckoutSession>(env, "/checkout/sessions", {
     mode: "payment",
     customer_email: o.email,
     client_reference_id: o.orderId,
-    metadata: { order_id: o.orderId },
+    metadata,
     // Refunds and disputes arrive as charge events, which only carry the
     // payment intent — this is how they find their way back to the order.
-    payment_intent_data: { metadata: { order_id: o.orderId }, description: `PetID ${o.name}` },
+    payment_intent_data: { metadata, description: `PetID ${o.name}` },
     line_items: [{
       quantity: 1,
       price_data: {

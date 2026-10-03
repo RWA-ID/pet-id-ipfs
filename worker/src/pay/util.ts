@@ -65,3 +65,18 @@ export function labelError(label: string): string | null {
   if (label.startsWith("-") || label.endsWith("-")) return "name can't start or end with a hyphen";
   return null;
 }
+
+/**
+ * A shop's code: what its flyer QR carries and what a customer types at
+ * checkout. Lowercased here so "PAWSCO" off a printed flyer still matches.
+ * Returns null for anything that can't be a code.
+ */
+export function normalizeShopCode(raw: unknown): string | null {
+  const code = String(raw ?? "").trim().toLowerCase();
+  return /^[a-z0-9](?:[a-z0-9-]{1,22}[a-z0-9])$/.test(code) && !code.includes("--") ? code : null;
+}
+
+/** Free text from a shop's sign-up form: control characters out, length capped. */
+export function cleanText(raw: unknown, max: number): string {
+  return String(raw ?? "").replace(/[\x00-\x1f\x7f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}

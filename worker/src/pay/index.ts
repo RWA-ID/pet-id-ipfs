@@ -37,6 +37,9 @@ import type { Env } from "./env";
 import { verifyGoogleIdToken } from "./google";
 import { qrPng } from "./qr";
 import { issueSession, sessionFrom, type Session } from "./session";
+import {
+  handleAdminShops, handleGetMyShop, handleSaveMyShop, handleShopLookup, handleShopQr, referringShop,
+} from "./shops";
 import { createCheckoutSession, expireCheckoutSession, refundPaymentIntent, verifyStripeSignature } from "./stripe";
 import { allowedOrigins, corsHeaders, json, labelError, PARENTS, readJson, short } from "./util";
 
@@ -87,6 +90,11 @@ export default {
           },
         });
       }
+      // A shop's flyer QR and its display name. Public: both are printed on the flyer anyway.
+      const shop = url.pathname.match(/^\/shops\/([a-z0-9-]{3,24})(\/qr\.png)?$/);
+      if (shop && shop[2] && (req.method === "GET" || req.method === "HEAD")) return await handleShopQr(req, env, shop[1]);
+      if (shop && !shop[2] && req.method === "GET") return await handleShopLookup(env, shop[1], cors);
+
       if (url.pathname.startsWith("/admin/")) return await handleAdmin(req, env, ctx, url);
 
       const user = await sessionFrom(req, env.SESSION_SECRET);
@@ -94,6 +102,9 @@ export default {
 
       if (url.pathname === "/me" && req.method === "GET") return await handleMe(env, user, cors);
       if (url.pathname === "/checkout" && req.method === "POST") return await handleCheckout(req, env, user, cors);
+      // The signed-in account's own shop: sign up, update, and see what it has earned.
+      if (url.pathname === "/shop" && req.method === "GET") return await handleGetMyShop(env, user, cors);
+      if (url.pathname === "/shop" && req.method === "POST") return await handleSaveMyShop(req, env, user, cors);
 
       const m = url.pathname.match(/^\/orders\/([0-9a-f-]{36})(\/claim|\/claim-message)?$/);
       if (m && !m[2] && req.method === "GET") return await handleGetOrder(env, user, m[1], cors);
@@ -258,14 +269,20 @@ async function handleCheckout(req: Request, env: Env, user: Session, cors: Cors)
 
   if (!(await isAvailable(chain(env), parent, label))) return json({ error: "That name is already taken." }, 409, cors);
 
+  // The pet shop whose flyer or code brought this buyer in. Fixed now, with the
+  // shop's current rate, so a later rate change never rewrites this order.
+  const shop = await referringShop(env, body?.ref, user);
+
   const id = crypto.randomUUID();
   const now = Date.now();
   const amount = Number(env.PRICE_CENTS);
   try {
     await env.DB.prepare(
-      `INSERT INTO orders (id, user_sub, email, parent, label, contenthash, pet_name, photo_url, amount_cents, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-    ).bind(id, user.sub, user.email, parent, label, contenthash, petName, photoUrl, amount, now, now).run();
+      `INSERT INTO orders (id, user_sub, email, parent, label, contenthash, pet_name, photo_url, amount_cents,
+         partner_code, commission_cents, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+    ).bind(id, user.sub, user.email, parent, label, contenthash, petName, photoUrl, amount,
+      shop?.code ?? null, shop?.commission_cents ?? null, now, now).run();
   } catch (e) {
     if (String(e).includes("UNIQUE")) {
       return json({ error: "Someone else is checking out this name right now. Try again in 30 minutes." }, 409, cors);
@@ -281,6 +298,7 @@ async function handleCheckout(req: Request, env: Env, user: Session, cors: Cors)
       amountCents: amount,
       successUrl: `${returnUrl}?order=${id}&checkout=success`,
       cancelUrl: `${returnUrl}?order=${id}&checkout=canceled`,
+      partnerCode: shop?.code,
     });
     await updateOrder(env, id, { stripe_session_id: session.id, order_ref: orderRefFor(session.id) });
     return json({ url: session.url, orderId: id }, 200, cors);
@@ -652,6 +670,9 @@ async function handleAdmin(req: Request, env: Env, ctx: ExecutionContext, url: U
       : env.DB.prepare("SELECT * FROM orders ORDER BY created_at DESC LIMIT 200");
     return json({ orders: (await stmt.all<OrderRow>()).results });
   }
+
+  const shops = await handleAdminShops(req, env, url);
+  if (shops) return shops;
 
   const m = url.pathname.match(/^\/admin\/orders\/([0-9a-f-]{36})\/(retry|revoked|resend-receipt)$/);
   if (req.method === "POST" && m) {

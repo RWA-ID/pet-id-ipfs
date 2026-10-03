@@ -134,11 +134,13 @@ const POLICY = [
   ["font-src", "'self' data: https://fonts.gstatic.com https://fonts.reown.com"],
 
   // blob: is the pet photo preview and the QR download; data: is wallet icons.
+  // The pay worker serves a shop's flyer QR (/shops/<code>/qr.png) on app/shops.
   // images.unsplash.com is the sample dog photo in the homepage hero card — it
   // is a CSS background-image in app/page.tsx, so it is governed by img-src and
   // fails *silently* (an empty card, no error in the console) when left out.
   ["img-src", ["'self'", "data:", "blob:", ...WALLETCONNECT,
-    ...PINATA_GATEWAY, "https://images.unsplash.com", ...GOOGLE_ANALYTICS].join(" ")],
+    ...PINATA_GATEWAY, "https://images.unsplash.com", ...GOOGLE_ANALYTICS,
+    ...originOf("NEXT_PUBLIC_PAY_API", "")].join(" ")],
 
   ["connect-src", ["'self'", ...APP_BACKENDS, ...WALLETCONNECT, ...COINBASE, GOOGLE_GSI,
     ...GOOGLE_ANALYTICS,
