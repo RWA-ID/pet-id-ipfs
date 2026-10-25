@@ -51,9 +51,52 @@ Profile sections: found-banner (contact actions) · photo + bio · Identity (bre
 
 ---
 
-## Partner program (pet shops, vets, groomers)
+## Partner programs (pet shops, vets, groomers)
 
-Partners resell PetID registrations **at their own price** and keep the margin. Since v4 this is built into the registrar itself — a `partner` argument on the register call, priced by `quote(buyer, partner)`. There is **no separate router**; the old `PetIDPartnerRouter` belonged to v3 and is no longer used. Names minted via a partner are identical to direct registrations.
+There are two, and they don't share any code, money or accounts. The site leads with **shop flyers**, because a shop owner can start it with nothing but an email address; **resellers** are for businesses that already take crypto.
+
+| | Shop flyers (card) | Resellers (crypto) |
+|---|---|---|
+| Sign-up | [`/shops/`](https://petid.eth.limo/shops/), Google or any email, instant | [`/partner/`](https://petid.eth.limo/partner/), wallet application, approved on-chain |
+| Customer pays | **$19.99** by card on Stripe Checkout | the partner's own price, in ETH or USDC from their own wallet |
+| Partner earns | **$5** per registration | everything above the **$14.99** wholesale rate |
+| How it's tracked | `?ref=<code>` from the flyer QR, or the code typed at checkout; stamped on the order in D1 | the `partner` argument inside the mint transaction |
+| How they're paid | Stripe Connect transfer to their bank on the **1st of each month**, after a 30-day refund hold, $20 minimum | withdraw from the registrar **anytime**, no minimum |
+| Code | [`app/shops/`](app/shops/), [`worker/src/pay/shops.ts`](worker/src/pay/shops.ts), [`payouts.ts`](worker/src/pay/payouts.ts) | [`app/partner/`](app/partner/), the registrar, [`widget/`](widget/) |
+
+A card order can't be credited to a reseller, and a reseller link (`?partner=0x…`) hides card checkout, because the reseller's price lives on-chain and Stripe Checkout doesn't honour it.
+
+### Shop flyers (card orders, paid through Stripe)
+
+A shop signs up on **`/shops/`** (same sign-in as buyers), picks a code, and prints a flyer whose QR opens the site with `?ref=<code>`. An inline script in `app/layout.tsx` remembers the code for up to 30 days from the scan (`lib/ref.ts`); the register page sends it with the checkout, and customers who didn't scan can type it on the review step. The worker ([`shops.ts`](worker/src/pay/shops.ts)) stamps the order with `partner_code` and the shop's `commission_cents` **when checkout opens**, so a later rate change never rewrites past orders. Unknown, paused and self-referred codes are ignored, never an error.
+
+> **The 30 days is a ceiling, not a guarantee.** The code lives in `localStorage`, which is per browser and per gateway host (a scan on petid.eth.limo isn't seen on petid.eth.link), and iOS Safari wipes script-written storage after ~7 days without a visit. The code printed on the flyer, typed at checkout, is the backstop, and `/shops/` tells shops so.
+
+- An order **earns** once it's `minted` (or later); `paid`/`minting` is "on the way"; refunded and revoked orders drop out on their own.
+- New shops get `SHOP_COMMISSION_CENTS` (wrangler.pay.toml); the site displays `SHOP_COMMISSION_CENTS` in `lib/pay.ts`. Change both.
+- Admin: `GET /admin/shops` (totals per shop), `POST /admin/shops/<code>/pause|activate`.
+
+**Payouts** ([`payouts.ts`](worker/src/pay/payouts.ts)) go through **Stripe Connect**. A shop clicks "Connect my bank" on its dashboard; the worker creates a **US recipient account with Accounts v2** (transfers into its Stripe balance only, Express dashboard; Stripe refuses v1 account creation for new Connect platforms) and sends it to Stripe's hosted onboarding, which collects the bank, identity and tax details. We never see them. v2 calls pin `Stripe-Version: 2026-09-30.endive` (`V2_VERSION` in `stripe.ts`); transfers and the dashboard link stay on v1, which accepts v2 accounts. On the **1st of each month, 15:00 UTC** (the daily second cron in `wrangler.pay.toml`, `PAYOUT_CRON`) each connected shop gets one transfer:
+
+- **credits**: orders that earn and are older than `SHOP_PAYOUT_HOLD_DAYS` (30), not yet paid → `orders.payout_id`
+- **debits**: orders paid out earlier that were since refunded or revoked → `orders.clawback_payout_id`
+- sent only if credits − debits ≥ `SHOP_PAYOUT_MIN_CENTS` ($20); otherwise nothing is marked and it rolls over.
+
+The marks land in one D1 batch before Stripe is called, under a `payouts` lease, and the transfer's idempotency key is the payout id. A refused transfer (empty balance, say) stays `failed` and the same cron retries it **every day** under the same key, so it can't pay twice; after 5 attempts it waits for `POST /admin/payouts/<id>/retry`. Shops that are owed ≥ $20 with no bank connected get a reminder email, at most every 20 days; until they connect, their earnings simply wait. Admin: `GET /admin/payouts`, `POST /admin/payouts/run`, `POST /admin/payouts/<id>/retry`.
+
+**Who does what.** The cron does the monthly run and the retries on its own. The **shop** has to connect its bank. **We** read the payout summary and failure alerts that go to `NOTIFY_EMAIL` on the 1st, keep enough available balance on the platform for the month's transfers, revoke names on-chain after a post-mint refund or dispute, and handle year-end tax reporting for connected accounts.
+
+**Prerequisite:** Connect must be enabled on the Stripe account ([dashboard.stripe.com/connect](https://dashboard.stripe.com/connect)) as a marketplace ("customers pay your platform and you distribute funds"), in test and live mode separately; live mode also needs the platform's identity verified. Until it is, "Connect my bank" fails and the admin is emailed. Transfers draw on the platform's **available** balance. With Stripe's default **daily** payouts to our own bank that balance is near zero on the 1st, and every shop transfer would fail. Set our own payout schedule to **monthly, on the 2nd** (Dashboard → Settings → Payouts), so the 1st's run has the month's money to send. A transfer that still fails is retried daily.
+
+```bash
+cd worker
+node scripts/shops-e2e.mjs      # 44 checks: sign-up, QR, attribution, self-referral, pause, earnings
+node scripts/payouts-e2e.mjs    # 52 checks: onboarding, holds, minimum, clawbacks, refused transfers, cron (local stand-in for Stripe)
+```
+
+### Resellers (crypto, paid on-chain)
+
+Resellers sell PetID registrations **at their own price** and keep the margin. Since v4 this is built into the registrar itself — a `partner` argument on the register call, priced by `quote(buyer, partner)`. There is **no separate router**; the old `PetIDPartnerRouter` belonged to v3 and is no longer used. Names minted via a partner are identical to direct registrations.
 
 Two prices matter, both denominated in USD on-chain:
 
@@ -64,9 +107,9 @@ Two prices matter, both denominated in USD on-chain:
 
 A partner sets any customer price at or above wholesale and keeps the difference. Wholesale is an **owner-approved allowlist** (`setWholesaler`), not open — otherwise any buyer could self-register and pocket the spread. The floor is wholesale rather than retail, so a partner may legally undercut petid.eth; that's deliberate.
 
-> **Wholesale is never rendered before a wallet connects.** It's partner pricing, not public pricing — neither the landing page's "For businesses" section nor the disconnected `/partner/` page names a number. Both show an illustrative *margin* (`$10.00 on a $24.99 listing`) instead.
+> **The site never renders wholesale before a wallet connects.** It's partner pricing, not public pricing: the disconnected `/partner/` page shows an illustrative *margin* (`$10.00 on a $24.99 listing`) instead, and the landing page's "For businesses" section, which leads with shop flyers, doesn't price the reseller program at all.
 
-### Flow
+#### Flow
 
 1. Partner opens [`/partner`](https://petid.eth.link/partner/) — or the shareable shortcut [`/apply`](https://petid.eth.link/apply/), which redirects there — and connects the wallet that should receive earnings.
 2. **Application.** Reseller access is an allowlist keyed to a wallet address, so the page shows an application form (business, contact, location, expected volume). It POSTs to the [`worker/`](worker/) endpoint, which stores it in KV and emails a notification. Until the wallet is approved on-chain the page stays in "application received".
@@ -74,9 +117,7 @@ A partner sets any customer price at or above wholesale and keeps the difference
 4. Partner shares their link or embeds the widget. Every registration through it carries their address.
 5. Margin accrues in the registrar under the partner's address in whichever asset the customer paid (ETH or USDC); one withdrawal claims both, anytime.
 
-The wholesale rate is **only rendered after a wallet is connected** — it's partner pricing, not public pricing, so neither the landing page's "For businesses" section nor the disconnected partner page names a number.
-
-### Applications
+#### Applications
 
 `/partner/` is one route with four states, driven entirely by chain reads: **public pitch** → **application form** (connected, not yet approved) → **application received** → **dashboard** (approved). There's no "sign up" — approval is an on-chain allowlist entry for the exact wallet that applied.
 
@@ -93,7 +134,7 @@ Then approve a wallet with `setWholesaler(<address>, true)` on the registrar. Un
 
 If `NEXT_PUBLIC_PARTNER_APPLY_URL` is unset the form degrades to a prefilled `mailto:` plus a copyable text block, so the page is never a dead end.
 
-### Embedding
+#### Embedding
 
 ```html
 <!-- button (opens the wizard in a new tab) -->
@@ -140,30 +181,7 @@ FORK_URL=<mainnet rpc> node scripts/pay-e2e.mjs
 
 anvil forks mainnet, `wrangler dev` runs the worker against a local D1, and the script plays Stripe with signed webhooks: 33 checks covering forged signatures, replayed webhooks, per-account privacy, wrong-wallet claims, permanent fuses on release, and refund → revoke → name for sale again.
 
-### Pet-shop referrals (card orders)
-
-A shop signs up on **`/shops/`** (same sign-in as buyers), picks a code, and prints a flyer whose QR opens the site with `?ref=<code>`. An inline script in `app/layout.tsx` remembers the code for 30 days (`lib/ref.ts`); the register page sends it with the checkout, and customers who didn't scan can type it on the review step. The worker ([`shops.ts`](worker/src/pay/shops.ts)) stamps the order with `partner_code` and the shop's `commission_cents` **when checkout opens**, so a later rate change never rewrites past orders. Unknown, paused and self-referred codes are ignored, never an error.
-
-- An order **earns** once it's `minted` (or later); `paid`/`minting` is "on the way"; refunded and revoked orders drop out on their own.
-- New shops get `SHOP_COMMISSION_CENTS` (wrangler.pay.toml); the site displays `SHOP_COMMISSION_CENTS` in `lib/pay.ts`. Change both.
-- Admin: `GET /admin/shops` (totals per shop), `POST /admin/shops/<code>/pause|activate`.
-- Separate from the on-chain reseller program on `/partner/`, which is wallet-based and pays out through the registrar.
-
-**Payouts** ([`payouts.ts`](worker/src/pay/payouts.ts)) go through **Stripe Connect**. A shop clicks "Connect my bank" on its dashboard; the worker creates a **US recipient account with Accounts v2** (transfers into its Stripe balance only, Express dashboard; Stripe refuses v1 account creation for new Connect platforms) and sends it to Stripe's hosted onboarding, which collects the bank, identity and tax details. v2 calls pin `Stripe-Version: 2026-09-30.endive` (`V2_VERSION` in `stripe.ts`); transfers and the dashboard link stay on v1, which accepts v2 accounts. We never see them. On the **1st of each month, 15:00 UTC** (the daily second cron in `wrangler.pay.toml`, `PAYOUT_CRON`) each connected shop gets one transfer:
-
-- **credits**: orders that earn and are older than `SHOP_PAYOUT_HOLD_DAYS` (30), not yet paid → `orders.payout_id`
-- **debits**: orders paid out earlier that were since refunded or revoked → `orders.clawback_payout_id`
-- sent only if credits − debits ≥ `SHOP_PAYOUT_MIN_CENTS` ($20); otherwise nothing is marked and it rolls over.
-
-The marks land in one D1 batch before Stripe is called, under a `payouts` lease, and the transfer's idempotency key is the payout id. A refused transfer (empty balance, say) stays `failed` and the same cron retries it **every day** under the same key, so it can't pay twice; after 5 attempts it waits for `POST /admin/payouts/<id>/retry`. Shops that are owed ≥ $20 with no bank connected get a reminder email, at most every 20 days. Admin: `GET /admin/payouts`, `POST /admin/payouts/run`, `POST /admin/payouts/<id>/retry`.
-
-**Prerequisite:** Connect must be enabled on the Stripe account ([dashboard.stripe.com/connect](https://dashboard.stripe.com/connect)) as a marketplace ("customers pay your platform and you distribute funds"), in test and live mode separately; live mode also needs the platform's identity verified. Until it is, "Connect my bank" fails and the admin is emailed. Transfers draw on the platform's **available** balance. With Stripe's default **daily** payouts to our own bank that balance is near zero on the 1st, and every shop transfer would fail. Set our own payout schedule to **monthly, on the 2nd** (Dashboard → Settings → Payouts), so the 1st's run has the month's money to send. A transfer that still fails is retried daily.
-
-```bash
-cd worker
-node scripts/shops-e2e.mjs      # 44 checks: sign-up, QR, attribution, self-referral, pause, earnings
-node scripts/payouts-e2e.mjs    # onboarding, holds, minimum, clawbacks, refused transfers, cron (local stand-in for Stripe)
-```
+Pet shops earn a commission on card orders they refer; that program, including Stripe Connect payouts, is under [Partner programs → Shop flyers](#shop-flyers-card-orders-paid-through-stripe).
 
 ---
 
