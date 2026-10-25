@@ -43,9 +43,17 @@ export function loadRef(): string | null {
   }
 }
 
-/** A code the buyer typed in themselves counts the same as a scan. */
+/**
+ * A code the buyer typed in themselves counts the same as a scan. The register
+ * page also calls this every time it confirms the remembered code, so the same
+ * code keeps its original time: otherwise each visit would restart the 30 days
+ * the /shops/ page promises are counted from the scan.
+ */
 export function saveRef(code: string) {
   try {
-    localStorage.setItem(REF_KEY, JSON.stringify({ code, at: Date.now() }));
+    const raw = localStorage.getItem(REF_KEY);
+    const prev = raw ? (JSON.parse(raw) as { code?: string; at?: number }) : null;
+    const at = prev?.code === code && prev.at ? prev.at : Date.now();
+    localStorage.setItem(REF_KEY, JSON.stringify({ code, at }));
   } catch {}
 }

@@ -629,13 +629,12 @@ export default function RegisterWizard() {
                     <button style={{...btnOutline,width:"100%"}} onClick={() => { setMode("card"); setReturnNotice(""); }}>
                       Pay with card · {formatUsd(BigInt(CARD_PRICE_CENTS))}
                     </button>
-                    {/* Stripe's official wordmark, unaltered — their marks terms
-                        forbid recolouring it. The card network marks that used to
-                        sit alongside are gone: Stripe Checkout shows the accepted
-                        networks itself. */}
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"7px",marginTop:"12px",flexWrap:"wrap",fontSize:"12.5px",color:"#8A6B4E"}}>
-                      <span>Secure checkout powered by</span>
-                      <img src="/brands/stripe.svg" alt="Stripe" width={42} height={20} style={{display:"block"}}/>
+                    {/* Stripe's official "Powered by Stripe" badge, unaltered — their
+                        marks terms forbid recolouring it. The card network marks that
+                        used to sit alongside are gone: Stripe Checkout shows the
+                        accepted networks itself. */}
+                    <div style={{display:"flex",justifyContent:"center",marginTop:"12px"}}>
+                      <img src="/brands/powered-by-stripe-black.svg" alt="Powered by Stripe" width={119} height={27} style={{display:"block"}}/>
                     </div>
                   </>
                 )}
@@ -971,6 +970,7 @@ export default function RegisterWizard() {
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
                   You&apos;ll pay on the secure Stripe checkout page — PetID never sees your card details.
                 </div>
+                <img src="/brands/powered-by-stripe-black.svg" alt="Powered by Stripe" width={106} height={24} style={{display:"block",margin:"6px 0 0"}}/>
 
                 {/* The shop whose flyer brought this buyer in. Optional, and it never changes the price. */}
                 <div style={{marginTop:"14px",background:"#FBF5EC",border:"1px dashed #E5D3B6",borderRadius:"12px",padding:"12px 14px",fontSize:"13.5px",color:"#5C3E25"}}>

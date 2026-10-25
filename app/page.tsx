@@ -2,19 +2,19 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
 /**
- * Stripe's official wordmark (public/brands/stripe.svg), served as a file and
- * never recoloured: Stripe's marks usage terms forbid altering them, which
- * rules out the inline-path + currentColor trick this used to do.
+ * Stripe's official "Powered by Stripe" badge (public/brands/, from Stripe's
+ * badge kit), served as a file and never recoloured: Stripe's marks usage
+ * terms forbid altering them. Black on our cream backgrounds; the kit's white
+ * one is for dark ones.
  *
  * The Visa/Mastercard/Amex acceptance marks used to sit here too. They're gone
  * on purpose — Stripe Checkout displays the accepted networks on its own page,
  * so showing them here bought nothing and took on three more trademarks.
  */
-function PaymentMarks({ align = "flex-start" }: { align?: "flex-start" | "center" }) {
+function PaymentMarks({ align = "flex-start", tone = "black" }: { align?: "flex-start" | "center"; tone?: "black" | "white" }) {
   return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:align,gap:"8px",flexWrap:"wrap",marginTop:"16px",fontSize:"13px",color:"var(--brown-3)"}}>
-      <span>Secure checkout powered by</span>
-      <img src="/brands/stripe.svg" alt="Stripe" width={42} height={20} style={{display:"block"}}/>
+    <div style={{display:"flex",justifyContent:align,marginTop:"16px"}}>
+      <img src={`/brands/powered-by-stripe-${tone}.svg`} alt="Powered by Stripe" width={119} height={27} style={{display:"block"}}/>
     </div>
   );
 }
@@ -174,6 +174,23 @@ export default function LandingPage() {
         .earn-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(251,245,236,.6);margin-bottom:6px;}
         .earn-amount{font-family:'Fraunces',serif;font-weight:700;font-size:26px;letter-spacing:-0.02em;color:var(--amber-soft);line-height:1.1;}
         .earn-sub{font-size:11.5px;color:rgba(251,245,236,.65);margin-top:4px;}
+        /* A miniature of the printed flyer on /shops/ (its Flyer component). */
+        .flyer-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:26px 24px;transform:rotate(-1.5deg);}
+        .flyer-brand{display:flex;align-items:center;gap:6px;font-family:'Fraunces',serif;font-weight:700;font-size:15px;margin-bottom:12px;}
+        .flyer-h{font-family:'Fraunces',serif;font-weight:700;font-size:20px;line-height:1.2;letter-spacing:-0.01em;margin-bottom:18px;}
+        .flyer-row{display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:center;margin-bottom:16px;}
+        .flyer-qr{display:block;width:96px;height:96px;border-radius:8px;border:1px solid var(--line);image-rendering:pixelated;}
+        .flyer-scan{font-weight:600;font-size:13px;margin-bottom:6px;}
+        .flyer-point{font-size:12px;color:var(--brown-2);margin-bottom:3px;}
+        .flyer-code{margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brown-3);}
+        .flyer-code b{color:var(--brown);background:var(--cream-2);padding:2px 6px;border-radius:5px;}
+        .flyer-foot{border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--brown-3);}
+        .reseller-card{margin-top:120px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;background:var(--white);border:1px solid var(--line);border-radius:var(--radius-lg);padding:28px 30px;}
+        .reseller-card>*{min-width:0;}
+        .reseller-kicker{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--brown-3);margin-bottom:6px;}
+        .reseller-card h3{font-family:'Fraunces',serif;font-size:21px;font-weight:600;margin:0 0 6px;}
+        .reseller-card p{margin:0 0 16px;color:var(--brown-2);font-size:14.5px;line-height:1.55;max-width:620px;}
+        .reseller-card .int-snippet{margin:0;}
         .pricing{padding:110px 0 120px;background:var(--brown);color:var(--cream);position:relative;overflow:hidden;}
         .pricing .section-kicker{color:var(--amber-soft);}
         .pricing .section-title{color:var(--white);}
@@ -205,6 +222,7 @@ export default function LandingPage() {
         @media(max-width:960px){
           .hero{padding:48px 0 60px;}.hero-grid{grid-template-columns:1fr;gap:48px;}.hero-visual{justify-self:center;max-width:380px;}.nav-links{display:none;}.features{grid-template-columns:repeat(2,1fr);}.flows{grid-template-columns:1fr;}.domain-grid{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr 1fr;gap:32px;}.how,.get,.domains,.pricing,.integrate{padding:72px 0;}
           .integrate-grid{grid-template-columns:1fr;gap:56px;}.integrate-visual{justify-self:center;margin-bottom:44px;}
+          .reseller-card{grid-template-columns:1fr;margin-top:72px;padding:24px 20px;}
         }
         @media(max-width:540px){
           .int-snippet{font-size:10.5px;padding:14px;}
@@ -453,69 +471,90 @@ export default function LandingPage() {
       <section className="integrate" id="integrate">
         <div className="container">
           <div className="section-head">
-            <div className="section-kicker">For vets &amp; pet shops</div>
-            <h2 className="section-title">Your counter. <em>Your</em> price.</h2>
-            <p className="section-lede">Sell PetID registrations from your clinic, shop or grooming salon. You set the price, customers mint on the spot, and your margin accrues on-chain — withdraw whenever you like. Partner registrations are paid in ETH or USDC from the customer&apos;s own wallet — card checkout isn&apos;t available on partner links yet.</p>
+            <div className="section-kicker">For pet shops, vets &amp; groomers</div>
+            <h2 className="section-title">Earn <em>$5</em> for every pet registered from your counter.</h2>
+            <p className="section-lede">Put a free PetID flyer by your register. Customers scan it and pay by card on their own phone, and your shop earns $5 for each one, paid to your bank every month through Stripe. No crypto, no stock, no contract.</p>
           </div>
+          {/* The card-paid flyer program (/shops/) leads because it is the one a
+              shop owner can start today with nothing but an email address. The
+              wallet reseller program is below it, for the few who want it. */}
           <div className="integrate-grid">
             <div>
               <ol className="int-steps">
                 <li>
                   <div className="int-num">01</div>
                   <div className="int-body">
-                    <h4>Apply &amp; set your price</h4>
-                    <p>Apply with the wallet that should receive your earnings, then choose what customers pay. You buy at the partner wholesale rate — shown in your dashboard once you&apos;re approved — and everything above it is yours.</p>
+                    <h4>Sign up free · 2 minutes</h4>
+                    <p>Sign in with Google or any email, then enter your shop&apos;s name and address and pick a short shop code like <code>PAWSCO</code>.</p>
                   </div>
                 </li>
                 <li>
                   <div className="int-num">02</div>
                   <div className="int-body">
-                    <h4>Drop one line on your site</h4>
-                    <p>A script tag renders the PetID button; an iframe embeds the whole flow. No build tools, no account, ~3 kB. Or just share your link at the counter — your customer will need a wallet with ETH or USDC to complete it.</p>
+                    <h4>Print your flyer</h4>
+                    <p>Your flyer, with your shop&apos;s own QR code and code printed on it, is ready right away. Any printer, letter or A4. Put it by the register.</p>
                   </div>
                 </li>
                 <li>
                   <div className="int-num">03</div>
                   <div className="int-body">
-                    <h4>Earn per registration</h4>
-                    <p>Attribution is on-chain and automatic — every mint through your widget credits your wallet. No invoices, no payout schedules, no minimums.</p>
+                    <h4>Customers scan and pay by card</h4>
+                    <p>They pay PetID $19.99, the same price with or without your code, so you never handle money. Each card registration credits your shop $5. A customer who didn&apos;t scan can type your code before paying.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="int-num">04</div>
+                  <div className="int-body">
+                    <h4>Connect your bank, get paid monthly</h4>
+                    <p>From your shop dashboard, connect your bank on Stripe&apos;s secure page, about 5 minutes; PetID never sees your bank details. On the 1st of each month we send everything past the 30-day refund window. Under $20 rolls over. US shops for now.</p>
                   </div>
                 </li>
               </ol>
-              <pre className="int-snippet">{`<script src="`}<span className="tk">https://unpkg.com/@petidentity/widget</span>{`"\n        data-partner="`}<span className="tk">0xYOUR_WALLET</span>{`"></script>`}</pre>
               <div className="cta-row">
-                <Link href="/partner/" className="btn btn-primary">
-                  Become a partner today!
+                <Link href="/shops/" className="btn btn-primary">
+                  Get my free flyer
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 </Link>
-                <a href="https://www.npmjs.com/package/@petidentity/widget" target="_blank" rel="noopener noreferrer" className="btn btn-outline">
-                  Widget docs <span className="btn-price">npm</span>
-                </a>
+                <Link href="/shops/#faq" className="btn btn-outline">Shop questions</Link>
               </div>
+              <PaymentMarks />
             </div>
             <div className="integrate-visual" aria-hidden="true">
-              <div className="browser-card">
-                <div className="browser-chrome">
-                  <span className="browser-dot"/><span className="browser-dot"/><span className="browser-dot"/>
-                  <span className="browser-url">happypawsclinic.com</span>
+              <div className="flyer-card">
+                <div className="flyer-brand"><svg width="16" height="16"><use href="#paw" style={{color:"var(--amber-dark)"}}/></svg> PetID</div>
+                <div className="flyer-h">If your pet ever gets lost, help them find their way home.</div>
+                <div className="flyer-row">
+                  {/* Real and scannable: it opens /shops/ (public/images/shops-qr.svg, made with uqr). */}
+                  <img className="flyer-qr" src="/images/shops-qr.svg" alt="" width={96} height={96}/>
+                  <div>
+                    <div className="flyer-scan">Scan with your phone camera</div>
+                    <div className="flyer-point">$19.99 once · pay by card</div>
+                    <div className="flyer-point">Ready in about 5 minutes</div>
+                    <div className="flyer-code">Shop code <b>PAWSCO</b></div>
+                  </div>
                 </div>
-                <div className="browser-body">
-                  <div className="shop-name">Happy Paws Clinic 🩺</div>
-                  <div className="shop-tag">Veterinary care · Mon–Sat 9–18</div>
-                  <div className="shop-line"/>
-                  <div className="shop-line"/>
-                  <div className="shop-line short"/>
-                  <span className="widget-demo">
-                    <svg width="16" height="16" aria-hidden="true"><use href="#paw" style={{color:"#FFFDF8"}}/></svg>
-                    Create your pet&apos;s PetID
-                  </span>
-                </div>
+                <div className="flyer-foot">Available at <b>Paws &amp; Co</b></div>
               </div>
               <div className="earn-card">
-                <div className="earn-label">Your margin · per registration</div>
-                <div className="earn-amount">$10.00</div>
-                <div className="earn-sub">on a $24.99 listing · withdraw anytime</div>
+                <div className="earn-label">Your shop earns · per pet</div>
+                <div className="earn-amount">$5.00</div>
+                <div className="earn-sub">paid to your bank on the 1st</div>
               </div>
+            </div>
+          </div>
+
+          <div className="reseller-card">
+            <div>
+              <div className="reseller-kicker">Already take crypto?</div>
+              <h3>Reseller program: set your own price</h3>
+              <p>Embed the PetID widget on your site, choose what customers pay, and keep everything above the wholesale rate, credited to your wallet on-chain. Customers pay in ETH or USDC from their own wallet; card payments don&apos;t go through reseller links.</p>
+              <pre className="int-snippet">{`<script src="`}<span className="tk">https://unpkg.com/@petidentity/widget</span>{`"\n        data-partner="`}<span className="tk">0xYOUR_WALLET</span>{`"></script>`}</pre>
+            </div>
+            <div className="cta-row">
+              <Link href="/partner/" className="btn btn-outline">Reseller program</Link>
+              <a href="https://www.npmjs.com/package/@petidentity/widget" target="_blank" rel="noopener noreferrer" className="btn btn-outline">
+                Widget docs <span className="btn-price">npm</span>
+              </a>
             </div>
           </div>
         </div>
@@ -538,6 +577,9 @@ export default function LandingPage() {
             <div className="price-label">PetID — Complete</div>
             <div className="price-row"><span className="price-amount">$19.99</span><span className="price-unit">one-time</span></div>
             <div className="price-sub">Card checkout by Stripe — no wallet, no gas. Or pay in ETH or USDC (+ gas).</div>
+            <div style={{display:"flex",justifyContent:"center",margin:"-12px 0 24px"}}>
+              <img src="/brands/powered-by-stripe-black.svg" alt="Powered by Stripe" width={119} height={27} style={{display:"block"}}/>
+            </div>
             <div className="price-divider"></div>
             <ul className="price-list">
               <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg><span><b>ENS subdomain</b> on dogid.eth or catid.eth</span></li>

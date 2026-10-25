@@ -45,7 +45,7 @@ const FAQ: [string, string][] = [
   ["When does a registration count?",
     "As soon as the customer's card payment goes through and their pet's PetID is created, usually within a minute. If a customer is later refunded, that registration doesn't earn."],
   ["What if a customer doesn't scan the QR code?",
-    "Your shop code is printed on the flyer, and customers can type it in on the last step before paying. A scan is also remembered for 30 days, so someone who scans today and signs up next week still counts for your shop."],
+    "Your shop code is printed on the flyer, and customers can type it in on the last step before paying. A scan is also remembered on the customer's phone for up to 30 days, so someone who scans today and signs up next week still counts for your shop. Some iPhones forget a scan after about a week, and a customer who switches phones or browsers won't carry it over, so it's worth saying \"use our code when you pay\"."],
   ["Does it cost anything?",
     `No. It's free to join, there's no monthly fee and nothing to stock. Customers pay PetID ${PRICE} directly, the same price with or without your code, so you never handle money at the counter.`],
   ["Do my customers or I need to know about crypto?",
@@ -167,6 +167,10 @@ function Pitch() {
             <span><b>✓</b> Nothing to stock</span>
             <span><b>✓</b> Paid to your bank</span>
           </div>
+          {/* Stripe's official badge, unaltered (public/brands/). Stripe really
+              does both halves here: the customer's card and the shop's payout. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brands/powered-by-stripe-black.svg" alt="Powered by Stripe" width={119} height={27} style={{ display: "block", marginTop: 18 }} />
         </div>
         <div className="sh-hero-art" aria-hidden="true">
           <figure className="sh-shot">
@@ -184,12 +188,13 @@ function Pitch() {
       <section className="sh-band sh-band-alt" id="how">
         <div className="sh-shell">
           <div className="sh-kicker">How it works</div>
-          <h2 className="sh-h2" style={{ marginBottom: 26 }}>Three steps. About five minutes of your time.</h2>
-          <div className="sh-grid-3">
+          <h2 className="sh-h2" style={{ marginBottom: 26 }}>Four steps. About ten minutes of your time, once.</h2>
+          <div className="sh-grid-4">
             {[
-              ["1", "Sign up", "Sign in with your shop's email and tell us your shop's name and address. No contract and nothing to buy."],
-              ["2", "Print your flyer", "You instantly get a flyer with your shop's own QR code. Print it on any printer and put it by the register."],
-              ["3", `Earn ${COMMISSION} per pet`, "Every customer who scans your code and registers their pet by card is credited to your shop. Watch them add up in your dashboard."],
+              ["1", "Sign up", "Sign in with Google or any email and tell us your shop's name and address. No contract and nothing to buy."],
+              ["2", "Print your flyer", "You instantly get a flyer with your shop's own QR code and shop code. Print it on any printer and put it by the register."],
+              ["3", `Earn ${COMMISSION} per pet`, "Every customer who scans your code, or types it in, and registers their pet by card is credited to your shop. Watch them add up in your dashboard."],
+              ["4", "Connect your bank", "From your dashboard, connect your bank on Stripe's secure page, about 5 minutes. We pay you on the 1st of every month. Until you connect, your earnings wait for you."],
             ].map(([n, title, body]) => (
               <div className="sh-card" key={n}>
                 <div className="sh-step-num">{n}</div>
@@ -489,7 +494,12 @@ function GettingPaid({ mine, token }: { mine: MyShop; token: string }) {
   return (
     <div className="sh-card sh-paid">
       <div className="sh-paid-main">
-        <h2 className="sh-h2">Getting paid</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h2 className="sh-h2">Getting paid</h2>
+          {/* Stripe's official badge, unaltered (public/brands/). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brands/powered-by-stripe-black.svg" alt="Powered by Stripe" width={106} height={24} style={{ display: "block" }} />
+        </div>
         {shop.payouts === "active" ? (
           <>
             <p className="sh-body"><span className="sh-ok">✓</span> Your bank is connected. Your next payout is on <b>{next}</b>.</p>
@@ -509,6 +519,7 @@ function GettingPaid({ mine, token }: { mine: MyShop; token: string }) {
             <p className="sh-body">
               Connect your bank and we&apos;ll send your earnings there every month. It takes about 5 minutes on Stripe&apos;s secure page.
               Stripe will ask for your bank account and a few details to confirm who you are. PetID never sees them.
+              Your earnings keep adding up until you do, so nothing is lost if you connect later.
             </p>
             <button className="sh-btn sh-btn-primary" disabled={busy} onClick={() => go("connect")}>
               {busy ? "Opening Stripe…" : <>Connect my bank {ARROW}</>}
@@ -518,7 +529,8 @@ function GettingPaid({ mine, token }: { mine: MyShop; token: string }) {
         {error && <div className="sh-note sh-note-err" role="alert">{error}</div>}
         <p className="sh-hint" style={{ marginTop: 14 }}>
           Payouts go out on the 1st of each month for registrations more than {p.holdDays} days old, after the refund window closes.
-          Amounts under {usd(p.minCents)} roll over to the next month. US shops only for now.
+          Amounts under {usd(p.minCents)} roll over to the next month. We email you when it&apos;s sent;
+          Stripe then deposits it in your bank, usually within a few business days. US shops only for now.
         </p>
       </div>
       <div className="sh-paid-nums">
@@ -661,7 +673,7 @@ const CSS = `
 .sh-earn-amt small{font-size:15px;color:var(--cream);font-weight:600;}
 .sh-earn-sub{font-size:12px;color:rgba(251,245,236,.62);margin-top:2px;}
 
-.sh-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.sh-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
 .sh-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 .sh-step-num{width:38px;height:38px;border-radius:50%;background:var(--amber);color:var(--white);display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:700;font-size:19px;margin-bottom:14px;}
 .sh-list{margin:12px 0 0;padding-left:19px;display:grid;gap:10px;font-size:15px;color:var(--brown-2);line-height:1.55;}
@@ -723,10 +735,12 @@ const CSS = `
 @media (max-width:940px){
   .sh-hero{grid-template-columns:1fr;gap:48px;padding:36px 28px 56px;}
   .sh-hero-art{max-width:480px;}
-  .sh-grid-3,.sh-grid-2,.sh-dash,.sh-paid{grid-template-columns:1fr;}
+  .sh-grid-2,.sh-dash,.sh-paid{grid-template-columns:1fr;}
+  .sh-grid-4{grid-template-columns:1fr 1fr;}
   .sh-nav-links{display:none;}
 }
 @media (max-width:600px){
+  .sh-grid-4{grid-template-columns:1fr;}
   .sh-shell{padding:0 16px;}
   .sh-hero{padding:28px 16px 48px;}
   .sh-form{grid-template-columns:1fr;}
